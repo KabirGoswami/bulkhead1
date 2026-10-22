@@ -26,10 +26,10 @@ app.add_middleware(
 )
 
 # --- In-Memory State ---
-# Load seed data
-with open("backend/seed_home.json", "r") as f:
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+with open(os.path.join(BASE_DIR, "seed_home.json"), "r") as f:
     seed_devices = json.load(f)
-with open("backend/accounts.json", "r") as f:
+with open(os.path.join(BASE_DIR, "accounts.json"), "r") as f:
     seed_accounts = json.load(f)
 
 current_state = HomeState(
@@ -120,13 +120,13 @@ async def get_audit():
 
 @app.post("/audit/fix")
 async def fix_finding(finding_id: str):
+    global current_state
     findings = run_audit(current_state)
     finding = next((f for f in findings if f.id == finding_id), None)
 
     if not finding:
         return {"error": "Finding not found"}, 404
 
-    global current_state
     current_state = apply_fix(current_state, finding)
 
     # Notify all clients via WS that state changed
@@ -140,6 +140,68 @@ async def fix_finding(finding_id: str):
     })
 
     return {"status": "fixed"}
+
+class ProfileRequest(BaseModel):
+    profile: str
+
+@app.post("/profile")
+async def set_profile(req: ProfileRequest):
+    global current_profile
+    if req.profile in PROFILES:
+        current_profile = req.profile
+        return {"status": "ok", "profile": current_profile}
+    return {"error": "Invalid profile"}, 400
+
+class ActionConfirmRequest(BaseModel):
+    alert_id: str
+    node_id: str
+    action: str
+
+@app.post("/action/confirm")
+async def confirm_action(req: ActionConfirmRequest):
+    global current_state, policy_engine
+    from alert_model import Alert
+    from datetime import datetime
+    synthetic_alert = Alert(
+        id=req.alert_id,
+        node_id=req.node_id,
+        confidence="high",
+        reason_codes=["MANUAL_CONFIRMED"],
+        explanation="Manual action confirmed by user.",
+        timestamp=datetime.now()
+    )
+    if policy_engine:
+        action = policy_engine.execute_action(synthetic_alert, req.action, current_state)
+        await broadcast({
+            "type": "STATE_UPDATE",
+            "payload": {
+                "devices": [d.dict() for d in current_state.devices],
+                "accounts": [a.dict() for a in current_state.accounts],
+                "exposure_score": calculate_exposure_score_fixed(current_state)
+            }
+        })
+        return {"status": "confirmed", "action": action.dict() if action else None}
+    return {"status": "confirmed"}
+
+class ActionUndoRequest(BaseModel):
+    action_id: str
+
+@app.post("/action/undo")
+async def undo_action(req: ActionUndoRequest):
+    global current_state, policy_engine
+    if policy_engine:
+        success = policy_engine.undo(req.action_id, current_state)
+        if success:
+            await broadcast({
+                "type": "STATE_UPDATE",
+                "payload": {
+                    "devices": [d.dict() for d in current_state.devices],
+                    "accounts": [a.dict() for a in current_state.accounts],
+                    "exposure_score": calculate_exposure_score_fixed(current_state)
+                }
+            })
+            return {"status": "undone"}
+    return {"status": "action not found"}, 404
 
 @app.get("/blast/{node_id}")
 async def get_blast_radius(node_id: str):

@@ -3,6 +3,7 @@ import axios from 'axios';
 import { ShieldAlert, ShieldCheck, AlertTriangle, CheckCircle2, Undo2, ShieldOff, Shield } from 'lucide-react';
 
 const API_BASE = 'http://localhost:8000';
+const WS_BASE = 'ws://localhost:8000';
 
 interface Alert {
   id: string;
@@ -25,7 +26,7 @@ export default function AlertFeed() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
 
   useEffect(() => {
-    const ws = new WebSocket(`ws://${API_BASE}/ws`);
+    const ws = new WebSocket(`${WS_BASE}/ws`);
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
       if (data.type === 'SIM_TICK' && data.payload.alerts) {

@@ -97,8 +97,8 @@ export default function App() {
             {activeTab === 'alerts' && <AlertFeed />}
             {activeTab === 'timeline' && <Timeline />}
           </div>
-        </main>
-      </div>
+        </div>
+      </main>
     </div>
   );
 }
