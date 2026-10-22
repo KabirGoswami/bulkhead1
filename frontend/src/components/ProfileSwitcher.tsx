@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import { UserRound } from 'lucide-react';
+import '../styles/controls.css';
 
 const API_BASE = 'http://localhost:8000';
 
@@ -16,20 +18,16 @@ export default function ProfileSwitcher() {
   };
 
   return (
-    <div className="p-4 rounded-lg border border-slate-700 bg-slate-800/50 space-y-4">
-      <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
-        User Profile
-      </h3>
-      <div className="grid grid-cols-2 gap-2">
+    <div className="profile-switcher">
+      <span className="profile-label"><UserRound size={14} aria-hidden="true" /> Profile</span>
+      <div className="profile-options" role="group" aria-label="User profile">
         {['Admin', 'Family', 'Work', 'Solo'].map(p => (
           <button
             key={p}
+            type="button"
             onClick={() => handleProfileChange(p)}
-            className={`px-3 py-2 rounded text-xs font-bold transition-all ${
-              profile === p
-                ? 'bg-accent-blue text-white border-accent-blue'
-                : 'bg-slate-900 text-slate-400 border-slate-700 hover:text-slate-200'
-            } border`}
+            aria-pressed={profile === p}
+            className={`profile-option${profile === p ? ' profile-option-active' : ''}`}
           >
             {p}
           </button>

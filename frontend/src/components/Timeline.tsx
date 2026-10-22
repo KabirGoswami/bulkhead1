@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { Activity, Search, ShieldCheck, RotateCcw, Radio } from 'lucide-react';
+import '../styles/inspector.css';
 
 interface TimelineEvent {
   type: 'DETECTION' | 'EXPLANATION' | 'CONTAINMENT' | 'RECOVERY';
@@ -17,21 +19,18 @@ export default function Timeline() {
       if (data.type === 'SIM_TICK' && data.payload.alerts) {
         const newEvents: TimelineEvent[] = [];
         data.payload.alerts.forEach((alert: any) => {
-          // Detection
           newEvents.push({
             type: 'DETECTION',
             timestamp: alert.timestamp,
             node_id: alert.node_id,
             message: `Anomalous activity detected on ${alert.node_id}`
           });
-          // Explanation
           newEvents.push({
             type: 'EXPLANATION',
             timestamp: alert.timestamp,
             node_id: alert.node_id,
             message: alert.explanation
           });
-          // Containment (if auto-acted)
           if (alert.action_taken === 'CONTAINED') {
             newEvents.push({
               type: 'CONTAINMENT',
@@ -47,47 +46,43 @@ export default function Timeline() {
     return () => ws.close();
   }, []);
 
-  const getEventColor = (type: string) => {
-    switch (type) {
-      case 'DETECTION': return 'text-warn-amber';
-      case 'EXPLANATION': return 'text-blue-400';
-      case 'CONTAINMENT': return 'text-safe-green';
-      case 'RECOVERY': return 'text-accent-blue';
-      default: return 'text-slate-400';
-    }
-  };
+  const eventIcons = { DETECTION: Activity, EXPLANATION: Search, CONTAINMENT: ShieldCheck, RECOVERY: RotateCcw };
 
   return (
-    <div className="space-y-6">
-      <h3 className="text-lg font-semibold flex items-center gap-2">
-        <div className="w-2 h-2 rounded-full bg-accent-blue animate-pulse" />
-        Event Timeline
-      </h3>
-
-      <div className="relative pl-6 border-l-2 border-slate-700 space-y-8">
-        {events.length === 0 ? (
-          <div className="text-slate-500 text-sm italic">Waiting for simulation events...</div>
-        ) : (
-          events.map((event, i) => (
-            <div key={i} className="relative">
-              <div className={`absolute -left-[31px] top-1 w-4 h-4 rounded-full border-2 border-dark-bg ${getEventColor(event.type).replace('text-', 'bg-')} bg-opacity-50`} />
-              <div className="flex flex-col gap-1">
-                <div className="flex items-center gap-2">
-                  <span className={`text-[10px] font-bold uppercase tracking-tighter ${getEventColor(event.type)}`}>
-                    {event.type}
-                  </span>
-                  <span className="text-[10px] text-slate-500 font-mono">
-                    {new Date(event.timestamp).toLocaleTimeString()}
-                  </span>
-                </div>
-                <p className="text-xs text-slate-300 leading-relaxed">
-                  {event.message}
-                </p>
-              </div>
-            </div>
-          ))
-        )}
+    <div className="inspector-content">
+      <div className="inspector-heading">
+        <div>
+          <span className="inspector-eyebrow">The full sequence</span>
+          <h3>Event Timeline</h3>
+        </div>
+        <span className="inspector-count">{events.length}<span className="inspector-sr-only"> Events</span></span>
       </div>
+      <p className="inspector-description">From first signal to containment.</p>
+
+      {events.length === 0 ? (
+        <div className="inspector-empty inspector-empty--inset">
+          <span className="inspector-empty-icon"><Activity size={30} strokeWidth={1.5} /></span>
+          <h4>A clear view of every event</h4>
+          <p>Waiting for simulation events...</p>
+          <span className="inspector-stream-label"><Radio size={12} aria-hidden="true" /> Simulation event stream</span>
+        </div>
+      ) : (
+        <ol className="event-timeline">
+          {events.map((event, i) => {
+            const Icon = eventIcons[event.type];
+            return (
+              <li key={i} className={`event-entry event-entry--${event.type.toLowerCase()}`}>
+                <span className="event-entry-marker"><Icon size={13} aria-hidden="true" /></span>
+                <div className="event-entry-meta">
+                  <span className="event-entry-type">{event.type}</span>
+                  <time dateTime={event.timestamp}>{new Date(event.timestamp).toLocaleTimeString()}</time>
+                </div>
+                <p>{event.message}</p>
+              </li>
+            );
+          })}
+        </ol>
+      )}
     </div>
   );
 }
