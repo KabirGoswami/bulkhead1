@@ -1,0 +1,122 @@
+[
+  {
+    "id": "router",
+    "name": "Home Router",
+    "type": "router",
+    "vendor": "GenericNet",
+    "zone": "main",
+    "criticality": "high",
+    "firmware_age_days": 120,
+    "allowed_destinations": ["*.genericnet.com"],
+    "allowed_peers": [],
+    "account_ids": ["household_admin"]
+  },
+  {
+    "id": "hub",
+    "name": "Smart Hub",
+    "type": "hub",
+    "vendor": "HomeLink",
+    "zone": "main",
+    "criticality": "high",
+    "firmware_age_days": 45,
+    "allowed_destinations": ["*.homelink.com"],
+    "allowed_peers": ["router"],
+    "account_ids": ["household_admin"]
+  },
+  {
+    "id": "camera_1",
+    "name": "Front Door Camera",
+    "type": "camera",
+    "vendor": "SecureView",
+    "zone": "iot",
+    "criticality": "high",
+    "firmware_age_days": 30,
+    "allowed_destinations": ["*.secureview.com"],
+    "allowed_peers": ["hub"],
+    "account_ids": ["camera_vendor_acc"]
+  },
+  {
+    "id": "lock_1",
+    "name": "Front Door Lock",
+    "type": "lock",
+    "vendor": "SecureView",
+    "zone": "iot",
+    "criticality": "high",
+    "firmware_age_days": 15,
+    "allowed_destinations": ["*.secureview.com"],
+    "allowed_peers": ["hub"],
+    "account_ids": ["camera_vendor_acc"]
+  },
+  {
+    "id": "thermostat",
+    "name": "Nest Thermostat",
+    "type": "thermostat",
+    "vendor": "Google",
+    "zone": "iot",
+    "criticality": "safety",
+    "firmware_age_days": 10,
+    "allowed_destinations": ["*.google.com"],
+    "allowed_peers": ["hub"],
+    "account_ids": ["household_admin"]
+  },
+  {
+    "id": "speaker",
+    "name": "Smart Speaker",
+    "type": "speaker",
+    "vendor": "Amazon",
+    "zone": "main",
+    "criticality": "low",
+    "firmware_age_days": 60,
+    "allowed_destinations": ["*.amazon.com"],
+    "allowed_peers": ["router"],
+    "account_ids": ["household_admin"]
+  },
+  {
+    "id": "plug_1",
+    "name": "Smart Plug",
+    "type": "plug",
+    "vendor": "CheapIoT",
+    "zone": "main",
+    "criticality": "low",
+    "firmware_age_days": 400,
+    "allowed_destinations": ["*.cheapiot.cloud"],
+    "allowed_peers": ["router"],
+    "account_ids": ["household_admin"]
+  },
+  {
+    "id": "bulb_1",
+    "name": "Old Smart Bulb",
+    "type": "bulb",
+    "vendor": "LegacyLight",
+    "zone": "main",
+    "criticality": "low",
+    "firmware_age_days": 700,
+    "allowed_destinations": ["*.legacylight.com"],
+    "allowed_peers": ["router"],
+    "account_ids": ["household_admin"]
+  },
+  {
+    "id": "phone",
+    "name": "Personal Phone",
+    "type": "phone",
+    "vendor": "Apple",
+    "zone": "main",
+    "criticality": "high",
+    "firmware_age_days": 5,
+    "allowed_destinations": ["*"],
+    "allowed_peers": ["router"],
+    "account_ids": ["household_admin"]
+  },
+  {
+    "id": "laptop",
+    "name": "Work Laptop",
+    "type": "laptop",
+    "vendor": "Dell",
+    "zone": "work",
+    "criticality": "high",
+    "firmware_age_days": 2,
+    "allowed_destinations": ["*"],
+    "allowed_peers": ["router"],
+    "account_ids": ["household_admin"]
+  }
+]
