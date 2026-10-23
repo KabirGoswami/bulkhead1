@@ -78,6 +78,10 @@ export function ApplicationProvider({ children }: { children: ReactNode }) {
           if (message.type === 'HEARTBEAT') return;
           if (cursor !== undefined && message.sequence <= cursor) return;
           cursor = message.sequence;
+          if (message.type === 'PHANTOM_UPDATE') {
+            window.dispatchEvent(new CustomEvent('bulkhead:phantom', { detail: homeId }));
+            return;
+          }
           const next = message.type === 'SIM_TICK' ? message.payload.state : message.payload;
           if (next?.household_id === homeId) {
             setState((prior: any) => !prior || next.sequence >= prior.sequence ? next : prior);

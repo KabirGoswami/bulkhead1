@@ -6,10 +6,12 @@ from sqlalchemy.exc import IntegrityError, OperationalError
 from bulkhead import auth, households, inventory, policies, incidents, integrations, events, gateway
 from bulkhead.db import DB
 from bulkhead.service import worker_status
+from bulkhead.phantom.router import router as phantom_router
 
 app = FastAPI(title="Bulkhead", version="1.0.0", docs_url=None, redoc_url=None, openapi_url="/api/v1/openapi.json")
 for module in (auth, households, inventory, policies, incidents, integrations, events, gateway):
     app.include_router(module.router)
+app.include_router(phantom_router)
 
 
 @app.middleware("http")

@@ -193,6 +193,12 @@ def notify_incident(db, home, incident):
 
 
 def tick(db, home):
+    # Retention shares the existing worker transaction; no new scheduler/bus.
+    from .db import PhantomConfig
+    from .phantom.maintenance import purge_metadata
+    phantom_config = db.get(PhantomConfig, home.id)
+    if phantom_config:
+        purge_metadata(db, home, phantom_config)
     for action in db.scalars(select(Action).where(Action.household_id == home.id, Action.mode == "simulation",
                             Action.state.in_(["applied", "verified"]), Action.expires_at <= time.time())):
         restore_simulation(db, home, action)

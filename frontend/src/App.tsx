@@ -1,17 +1,20 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, lazy, Suspense } from 'react';
 import { useBulkhead, useSession } from './lib/session';
 import { errorText } from './lib/api';
 import AccountPages from './components/AccountPages';
 import DevicesPage from './components/DevicesPage';
 import PoliciesPage from './components/PoliciesPage';
 import HouseholdPage from './components/HouseholdPage';
+import PhantomPage from './components/PhantomPage';
 import {
-  Activity, ArrowRight, ArrowUp, ArrowUpRight,
-  CircleDot, Fingerprint, History, House, Menu, Network, Play, Shield,
+  Activity, ArrowRight, ArrowUp, ArrowUpRight, Box,
+  CircleDot, Fingerprint, History, House, LayoutGrid, Menu, Network, Play, Shield,
   ShieldCheck, UsersRound, X,
 } from 'lucide-react';
 import AccessHealth from './components/AccessHealth';
 import HomeMap from './components/HomeMap';
+import './styles/network-room3d.css';
+const NetworkRoom3D = lazy(() => import('./components/NetworkRoom3D'));
 import AlertFeed from './components/AlertFeed';
 import ScenarioControl from './components/ScenarioControl';
 import Timeline from './components/Timeline';
@@ -29,6 +32,7 @@ const pages = [
   { id: 'policies', label: 'Policies', icon: Shield, href: '#/policies' },
   { id: 'household', label: 'Household', icon: UsersRound, href: '#/household' },
   { id: 'simulation', label: 'Simulation', icon: Play, href: '#/simulation' },
+  { id: 'phantom', label: 'Reality Check', icon: Fingerprint, href: '#/phantom' },
 ] as const;
 type Page = typeof pages[number]['id'] | 'not-found' | 'login' | 'register' | 'verify' | 'recover' | 'reset' | 'onboarding';
 
@@ -55,6 +59,7 @@ export default function App() {
   const [routeHash, setRouteHash] = useState(window.location.hash);
   const [accountError, setAccountError] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
+  const [networkView, setNetworkView] = useState<'2d' | '3d'>('2d');
   const session = useSession();
   const { state, stream, error, refresh } = useBulkhead();
   const exposureScore = state?.exposure_score ?? 0;
@@ -175,9 +180,24 @@ export default function App() {
               <PageIntro number="01" eyebrow="Network visibility" title="Your home, mapped" description="Explore the devices and accounts that connect your home. Select any node to see how far a compromise could reach." />
               {securitySummary}
               <section className="network-panel" aria-labelledby="network-title">
-                <div className="panel-heading"><div><span className="section-eyebrow">Devices, accounts & shared access</span><h2 id="network-title"><Network size={19} /> Connected home</h2></div><span className="panel-tag">Interactive map</span></div>
-                <div className="network-panel__canvas"><HomeMap /></div>
-                <div className="network-panel__caption"><CircleDot size={14} />Select a device or account to explore its blast radius. Pan or zoom to take a closer look.</div>
+                <div className="panel-heading">
+                  <div><span className="section-eyebrow">Devices, accounts &amp; shared access</span><h2 id="network-title"><Network size={19} /> Connected home</h2></div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div className="network-view-toggle" role="group" aria-label="Map view mode">
+                      <button className="network-view-toggle__btn" type="button" aria-pressed={networkView === '2d'} onClick={() => setNetworkView('2d')}><LayoutGrid size={14} />2D</button>
+                      <button className="network-view-toggle__btn" type="button" aria-pressed={networkView === '3d'} onClick={() => setNetworkView('3d')}><Box size={14} />3D Room</button>
+                    </div>
+                    <span className="panel-tag">{networkView === '3d' ? '3D room view' : 'Interactive map'}</span>
+                  </div>
+                </div>
+                <div className="network-panel__canvas">
+                  {networkView === '2d' ? <HomeMap /> : (
+                    <Suspense fallback={<div style={{ display: 'grid', placeItems: 'center', height: '100%', color: 'var(--muted)', fontSize: '13px' }}>Loading 3D room…</div>}>
+                      <NetworkRoom3D />
+                    </Suspense>
+                  )}
+                </div>
+                <div className="network-panel__caption"><CircleDot size={14} />{networkView === '3d' ? 'Orbit with mouse. Scroll to zoom. Click any node to reveal its blast radius.' : 'Select a device or account to explore its blast radius. Pan or zoom to take a closer look.'}</div>
               </section>
               <a className="next-page-link" href="#/health"><span>Next: find and resolve access risks</span>Access health<ArrowRight size={17} /></a>
             </section>
@@ -214,6 +234,7 @@ export default function App() {
               </section>
             </section>
           )}
+          {page === 'phantom' && <section className="feature-page" data-active-page="true"><PageIntro number="09" eyebrow="PHANTOM / Reality Check" title="Trust the source. Check the story" description="Follow a sensor message through identity, independent evidence, and the decision that controls a virtual action." /><PhantomPage /></section>}
           {page === 'devices' && <section data-active-page="true"><PageIntro number="06" eyebrow="Device inventory" title="Know what is connected" description="Approve devices, choose their zones, and record firmware and trusted lab mappings." /><DevicesPage /></section>}
           {page === 'policies' && <section data-active-page="true"><PageIntro number="07" eyebrow="Access policies" title="Give access a boundary" description="Preview persistent access rules and expiring grants before applying them to the simulation." /><PoliciesPage /></section>}
           {page === 'household' && <section data-active-page="true"><PageIntro number="08" eyebrow="Household settings" title="Your private household" description="Manage membership, invitations, sessions, notifications and lab enrollment." /><HouseholdPage key={routeHash} /></section>}
