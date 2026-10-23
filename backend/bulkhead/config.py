@@ -15,12 +15,20 @@ class Settings(BaseSettings):
     smtp_host: str = "mailpit"
     smtp_port: int = 1025
     smtp_sender: str = "Bulkhead <security@bulkhead.local>"
+    resend_api_key: str = ""
+    nvd_api_key: str = ""
     adapter_enabled: bool = False
     dry_run: bool = True
     tick_seconds: int = 2
 
     @model_validator(mode="after")
     def validate_origin(self):
+        if self.google_client_id:
+            self.google_client_id = self.google_client_id.strip()
+        if self.google_client_secret:
+            self.google_client_secret = self.google_client_secret.strip()
+        if self.resend_api_key:
+            self.resend_api_key = self.resend_api_key.strip()
         if self.google_client_secret_file:
             from pathlib import Path
             self.google_client_secret = Path(self.google_client_secret_file).read_text().strip()

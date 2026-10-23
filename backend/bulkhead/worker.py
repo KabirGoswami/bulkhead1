@@ -27,14 +27,38 @@ def claim(worker_id):
 
 
 def send_email(payload):
+    cfg = settings()
+    if cfg.resend_api_key:
+        import httpx
+        sender = cfg.smtp_sender
+        if "@bulkhead.local" in sender:
+            sender = "Bulkhead <onboarding@resend.dev>"
+        headers = {
+            "Authorization": f"Bearer {cfg.resend_api_key}",
+            "Content-Type": "application/json",
+        }
+        data = {
+            "from": sender,
+            "to": [payload["recipient"]],
+            "subject": payload["subject"],
+            "text": payload["text"],
+            "headers": {
+                "Message-ID": f"<{payload['message_id']}@bulkhead.local>",
+            },
+        }
+        with httpx.Client(timeout=10) as client:
+            res = client.post("https://api.resend.com/emails", headers=headers, json=data)
+            res.raise_for_status()
+        return
+
     message = EmailMessage()
-    message["From"] = settings().smtp_sender
+    message["From"] = cfg.smtp_sender
     message["To"] = payload["recipient"]
     message["Subject"] = payload["subject"]
     # Stable Message-ID supports downstream deduplication across an ambiguous SMTP retry.
     message["Message-ID"] = f"<{payload['message_id']}@bulkhead.local>"
     message.set_content(payload["text"])
-    with smtplib.SMTP(settings().smtp_host, settings().smtp_port, timeout=10) as smtp:
+    with smtplib.SMTP(cfg.smtp_host, cfg.smtp_port, timeout=10) as smtp:
         smtp.send_message(message)
 
 

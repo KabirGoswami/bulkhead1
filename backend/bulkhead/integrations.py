@@ -21,10 +21,16 @@ async def advisories(household_id: str, device_id: str, db: DB, user: CurrentUse
     cached = db.get(AdvisoryCache, key)
     if cached and cached.expires_at > time.time():
         return {**cached.data, "cached": True, "expires_at": cached.expires_at}
-    throttle(db, "nvd", 4, 30)
+    from .config import settings
+    cfg = settings()
+    headers = {"apiKey": cfg.nvd_api_key} if cfg.nvd_api_key else {}
+    if not cfg.nvd_api_key:
+        throttle(db, "nvd", 4, 30)
     try:
         async with httpx.AsyncClient(timeout=15) as client:
-            response = await client.get("https://services.nvd.nist.gov/rest/json/cves/2.0", params={"cpeName": cpe, "isVulnerable": "", "resultsPerPage": 100})
+            response = await client.get("https://services.nvd.nist.gov/rest/json/cves/2.0",
+                                        params={"cpeName": cpe, "isVulnerable": "", "resultsPerPage": 100},
+                                        headers=headers)
             response.raise_for_status()
             data = response.json()
             advisories = [{"id": v["cve"]["id"], "url": "https://nvd.nist.gov/vuln/detail/"+v["cve"]["id"],

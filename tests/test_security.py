@@ -179,3 +179,32 @@ def test_google_id_token_validation_failures(bad):
         with pytest.raises((ValueError,jwt.PyJWTError)):
             asyncio.run(validate_google('code',{'verifier':'pkce','nonce':'nonce'}))
         assert client.post.call_args.kwargs['data']['code_verifier']=='pkce'
+
+
+def test_dev_login_and_options(client):
+    opts = client.get(BASE+'/auth/options').json()
+    assert opts['dev_enabled'] is True
+
+    # Dev login creates user, sets session, and provisions default household
+    res = client.post(BASE+'/auth/dev-login', json={'email': 'developer@test.local', 'role': 'Owner'})
+    assert res.status_code == 200
+    data = res.json()
+    assert data['email'] == 'developer@test.local'
+    assert 'csrf_token' in data
+    assert 'set-cookie' in res.headers
+
+    # User can access /auth/me and list the provisioned household
+    client.headers['X-CSRF-Token'] = data['csrf_token']
+    me = client.get(BASE+'/auth/me').json()
+    assert me['email'] == 'developer@test.local'
+    assert me['verified'] is True
+
+    homes = client.get(BASE+'/households').json()
+    assert len(homes) >= 1
+    assert homes[0]['role'] == 'Owner'
+
+    # When dev_localhost is disabled, dev-login must be forbidden
+    with patch.object(settings(), 'dev_localhost', False):
+        forbidden = client.post(BASE+'/auth/dev-login')
+        assert forbidden.status_code == 403
+

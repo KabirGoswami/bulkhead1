@@ -41,4 +41,4 @@ def health(db: DB):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app:app", host="0.0.0.0", port=8000, proxy_headers=False)
+    uvicorn.run("app:app", host="0.0.0.0", port=8000, proxy_headers=False, reload=True)

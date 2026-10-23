@@ -11,7 +11,7 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select, delete, update
 from .config import settings
-from .db import DB, User, Identity, SessionRecord, Token, Job, uid, SessionLocal
+from .db import DB, User, Identity, SessionRecord, Token, Job, uid, SessionLocal, Household, Membership
 from .security import (CurrentUser, digest, password_hash, password_valid, session_for, new_session,
                        csrf_check, token_new, token_use, throttle, audit, COOKIE)
 
@@ -85,9 +85,53 @@ def me(db: DB, user: CurrentUser, request: Request):
             "google_linked": bool(db.scalar(select(Identity.id).where(Identity.user_id == user.id, Identity.provider == "google")))}
 
 
+class DevLoginInput(BaseModel):
+    email: str = Field(default="dev@bulkhead.local", max_length=254)
+    role: str = Field(default="Owner", max_length=16)
+    household_name: str = Field(default="Dev Household", max_length=100)
+
+
 @router.get("/options")
 def options():
-    return {"google_configured": bool(settings().google_client_id and settings().google_client_secret)}
+    return {
+        "google_configured": bool(settings().google_client_id and settings().google_client_secret),
+        "dev_enabled": bool(settings().dev_localhost),
+    }
+
+
+@router.post("/dev-login")
+def dev_login(request: Request, response: Response, db: DB, body: DevLoginInput | None = None):
+    if not settings().dev_localhost:
+        raise HTTPException(403, "Dev login is disabled; enable DEV_LOCALHOST for development")
+    data = body or DevLoginInput()
+    email = (data.email or "dev@bulkhead.local").strip().lower()
+    if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", email):
+        raise HTTPException(422, "Enter a valid email")
+    role = data.role if data.role in ("Owner", "Admin", "Viewer") else "Owner"
+    household_name = (data.household_name or "Dev Household").strip()
+
+    user = db.scalar(select(User).where(User.email == email))
+    if not user:
+        user = User(email=email, verified=True, password_hash=password_hash("development_pass_123"))
+        db.add(user)
+        db.flush()
+    elif not user.verified:
+        user.verified = True
+
+    has_membership = db.scalar(select(Membership.id).where(Membership.user_id == user.id))
+    if not has_membership:
+        from .service import seed_household, changed
+        home = Household(name=household_name)
+        db.add(home)
+        db.flush()
+        db.add(Membership(household_id=home.id, user_id=user.id, role=role))
+        seed_household(db, home)
+        changed(db, home, "household.created", actor=user.id)
+
+    old = session_for(db, request)
+    csrf = new_session(db, response, user.id, old)
+    audit(db, "auth.dev_login", actor=user.id)
+    return {"id": user.id, "email": user.email, "csrf_token": csrf}
 
 
 @router.post("/register", status_code=202)
