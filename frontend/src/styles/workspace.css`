@@ -1,0 +1,255 @@
+/* Phantom Workspace styles ported to main Bulkhead application */
+.workspace-nav {
+  display: flex;
+  gap: 25px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--border);
+  padding: 22px 0;
+  font: 10px/1.5 var(--font-mono);
+  color: var(--muted);
+  scrollbar-width: thin;
+}
+.workspace-nav a {
+  white-space: nowrap;
+  padding: 4px 0;
+  text-decoration: none;
+  color: inherit;
+  transition: color .2s;
+}
+.workspace-nav a:hover {
+  color: var(--accent);
+}
+
+.workspace-section {
+  padding-top: 56px;
+  margin-top: 42px;
+  border-top: 1px solid var(--border);
+  scroll-margin-top: 20px;
+}
+.workspace-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  margin-bottom: 25px;
+}
+.workspace-heading h2 {
+  font-size: 32px;
+  margin: 15px 0 10px;
+}
+.workspace-heading p {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.8;
+  margin: 0;
+}
+.capture-label {
+  font: 8px/1.7 var(--font-mono);
+  letter-spacing: 1px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.network-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+}
+.topology-shell {
+  min-width: 0;
+  background: #121a15;
+}
+.topology-caption {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 16px 18px;
+  color: var(--muted);
+  font-size: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.topology-caption > span:last-child {
+  margin-left: auto;
+  font-size: 9px;
+}
+.topology-canvas {
+  height: 540px;
+  position: relative;
+}
+.topology-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 22px;
+  padding: 14px 18px;
+  color: var(--muted);
+  font-size: 9px;
+}
+.topology-legend span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.topology-legend i {
+  width: 15px;
+  height: 2px;
+  background: var(--accent);
+}
+.topology-legend .warning-dot {
+  background: var(--warning);
+}
+.topology-legend .blocked-dot {
+  background: repeating-linear-gradient(90deg, #776f63 0 3px, transparent 3px 6px);
+}
+
+.react-flow {
+  --xy-background-color: #121a15;
+  --xy-edge-label-background-color: #121a15;
+  --xy-edge-label-color: var(--text);
+  --xy-controls-button-background-color: #1b281f;
+  --xy-controls-button-background-color-hover: #2b3b2e;
+  --xy-controls-button-color: #bed2c4;
+  --xy-controls-button-border-color: #435345;
+}
+
+.topology-node {
+  width: 215px;
+  min-height: 87px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  padding: 13px 14px;
+  text-align: left;
+  border-radius: 2px;
+}
+.topology-node .node-kicker {
+  font: 8px var(--font-mono);
+  letter-spacing: 1px;
+  color: var(--muted);
+  display: block;
+  margin-bottom: 9px;
+}
+.topology-node strong {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+}
+.topology-node span:last-child:not(.node-kicker) {
+  display: block;
+  margin-top: 6px;
+  font-size: 9px;
+  color: var(--muted);
+}
+.topology-node.flagged-node {
+  border-color: var(--warning);
+}
+.topology-node.isolated-node {
+  background: #271c17;
+  border-color: #a27863;
+}
+.topology-node.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.network-inspector {
+  border-left: 1px solid var(--border);
+  padding: 20px;
+  min-width: 0;
+  background: var(--surface);
+}
+.network-inspector > label {
+  font: 8px/1.6 var(--font-mono);
+  letter-spacing: 1px;
+  color: var(--muted);
+  display: block;
+}
+.inspector-state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  color: var(--accent);
+}
+.inspector-address {
+  font: 10px var(--font-mono);
+  color: var(--muted);
+  margin: 10px 0 25px;
+}
+
+.traffic-detail {
+  margin-bottom: 20px;
+}
+.traffic-detail h3 {
+  font: 12px var(--font-mono);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 15px 0 8px;
+}
+.traffic-detail > p {
+  font-size: 10px;
+  line-height: 1.8;
+  color: var(--muted);
+}
+.traffic-volume {
+  padding: 26px 0 12px;
+}
+.traffic-volume > span {
+  font: 9px var(--font-mono);
+  letter-spacing: 1.2px;
+  color: var(--muted);
+}
+.traffic-volume > strong {
+  display: block;
+  font-size: 43px;
+  line-height: 1.2;
+  font-weight: 300;
+  letter-spacing: -2px;
+  margin: 10px 0 16px;
+  color: var(--text);
+}
+.traffic-volume-track {
+  height: 3px;
+  width: 100%;
+  background: var(--border);
+}
+.traffic-volume-track > span {
+  display: block;
+  height: 100%;
+  background: var(--warning);
+}
+.traffic-volume > small {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.6;
+  margin-top: 10px;
+}
+
+.living-edge-label {
+  position: absolute;
+  padding: 4px 7px;
+  border: 1px solid var(--border);
+  background: #111b15ed;
+  color: var(--text);
+  font: 9px/1.5 var(--font-mono);
+  white-space: nowrap;
+  pointer-events: none;
+  border-radius: 2px;
+}
+.living-edge-label.route-focused {
+  color: #dfd9ba;
+  border-color: #71948b;
+  background: #19291fee;
+}
+
+.network-node-scan {
+  position: absolute;
+  inset: -5px;
+  display: block;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  pointer-events: none;
+  transform-origin: center;
+}

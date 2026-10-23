@@ -14,6 +14,7 @@ import {
 import AccessHealth from './components/AccessHealth';
 import HomeMap from './components/HomeMap';
 import './styles/network-room3d.css';
+import './styles/workspace.css';
 const NetworkRoom3D = lazy(() => import('./components/NetworkRoom3D'));
 import AlertFeed from './components/AlertFeed';
 import ScenarioControl from './components/ScenarioControl';
@@ -138,35 +139,36 @@ export default function App() {
   return (
     <div className="site-shell">
       <a className="skip-link" href="#main-content" onClick={event => { event.preventDefault(); document.getElementById('main-content')?.focus(); }}>Skip to content</a>
-      <header className="site-header">
-        <div className="site-header__inner">
-          <a className="site-brand" href="#/" aria-label="Bulkhead home"><Shield size={26} strokeWidth={1.5} /><span>bulkhead<span className="heading-dot">.</span></span></a>
-          <nav id="site-navigation" className={`site-nav ${menuOpen ? 'is-open' : ''}`} aria-label="Main navigation">
-            {pages.filter(({ id }) => session.user || id === 'overview').map(({ id, href, label, icon: Icon }) => (
-              <a key={id} href={href} aria-current={page === id ? 'page' : undefined} onClick={() => {
-                setMenuOpen(false);
-                if (menuOpen && page === id) {
-                  document.querySelector<HTMLElement>('[data-active-page="true"] [data-page-title]')?.focus({ preventScroll: true });
-                }
-              }}>
-                <Icon size={16} aria-hidden="true" /><span>{label}</span>
-              </a>
-            ))}
-          </nav>
-          <div className="site-header__actions">
-            <ThemePicker />
-            {session.user ? (
-              <a className="app-link" href="#/network">Enter Dashboard</a>
-            ) : (
-              <a className="app-link" href="#/login">Sign in</a>
-            )}
-            <button ref={menuButton} className="mobile-menu-button" type="button" aria-expanded={menuOpen} aria-controls="site-navigation" aria-label={menuOpen ? 'Close navigation' : 'Open navigation'} onClick={() => setMenuOpen(open => !open)}>
-              {menuOpen ? <X size={21} /> : <Menu size={21} />}
-            </button>
+      {page !== 'overview' && (
+        <header className="site-header">
+          <div className="site-header__inner">
+            <a className="site-brand" href="#/" aria-label="Bulkhead home"><Shield size={26} strokeWidth={1.5} /><span>bulkhead<span className="heading-dot">.</span></span></a>
+            <nav id="site-navigation" className={`site-nav ${menuOpen ? 'is-open' : ''}`} aria-label="Main navigation">
+              {pages.filter(({ id }) => session.user || id === 'overview').map(({ id, href, label, icon: Icon }) => (
+                <a key={id} href={href} aria-current={page === id ? 'page' : undefined} onClick={() => {
+                  setMenuOpen(false);
+                  if (menuOpen && page === id) {
+                    document.querySelector<HTMLElement>('[data-active-page="true"] [data-page-title]')?.focus({ preventScroll: true });
+                  }
+                }}>
+                  <Icon size={16} aria-hidden="true" /><span>{label}</span>
+                </a>
+              ))}
+            </nav>
+            <div className="site-header__actions">
+              <ThemePicker />
+              {session.user ? (
+                <a className="app-link" href="#/network">Enter Dashboard</a>
+              ) : (
+                <a className="app-link" href="#/login">Sign in</a>
+              )}
+              <button ref={menuButton} className="mobile-menu-button" type="button" aria-expanded={menuOpen} aria-controls="site-navigation" aria-label={menuOpen ? 'Close navigation' : 'Open navigation'} onClick={() => setMenuOpen(open => !open)}>
+                {menuOpen ? <X size={21} /> : <Menu size={21} />}
+              </button>
+            </div>
           </div>
-        </div>
-      </header>
-
+        </header>
+      )}
 
       <main id="main-content" tabIndex={-1} className={`site-main ${page === 'overview' ? 'site-main--home' : ''}`}>
         {accountView ? <AccountPages key={routeHash} page={page} /> : <>
@@ -176,7 +178,6 @@ export default function App() {
           </div>
         )}
         <div className="page-container" hidden={page === 'overview'}>
-
           {session.user && <div className="household-bar"><label htmlFor="active-household">Household</label><select id="active-household" className="household-select" value={session.home?.id || ''} onChange={e => session.choose(e.target.value)}>{session.homes.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}</select><span>{session.home?.role} access</span><a href="#/household">Settings</a><button className="app-link" onClick={() => session.logout().catch(err => setAccountError(errorText(err)))}>Sign out</button></div>}
           <div className="capability-note">Simulation is the default. The OpenWrt adapter is {state?.capabilities?.adapter_enabled ? 'enabled' : 'disabled'}; dry-run is {state?.capabilities?.dry_run === false ? 'off' : 'on'}. The lab demonstrates routed VM isolation. Physical-device protection, vendor-cloud enforcement and the public simulator are later phases.</div>
           {(error || accountError) && <div role="alert" className="app-error">{error || accountError} · Displayed data may be stale. <button className="app-link" onClick={refresh}>Retry</button></div>}
@@ -247,7 +248,7 @@ export default function App() {
           {page === 'phantom' && <section className="feature-page" data-active-page="true"><PageIntro number="09" eyebrow="PHANTOM / Reality Check" title="Trust the source. Check the story" description="Follow a sensor message through identity, independent evidence, and the decision that controls a virtual action." /><PhantomPage /></section>}
           {page === 'devices' && <section data-active-page="true"><PageIntro number="06" eyebrow="Device inventory" title="Know what is connected" description="Approve devices, choose their zones, and record firmware and trusted lab mappings." /><DevicesPage /></section>}
           {page === 'policies' && <section data-active-page="true"><PageIntro number="07" eyebrow="Access policies" title="Give access a boundary" description="Preview persistent access rules and expiring grants before applying them to the simulation." /><PoliciesPage /></section>}
-          {page === 'household' && <section data-active-page="true"><PageIntro number="08" eyebrow="Household settings" title="Your private household" description="Manage membership, invitations, sessions, notifications and lab enrollment." /><HouseholdPage key={routeHash} /></section>}
+          {page === 'household' && <section data-active-page="true"><PageIntro number="08" eyebrow="Household settings" title="Your private household" description="Manage membership, invitations, sessions, notifications and lab enrollment." /><HouseholdPage key={routeHahs} /></section>}
           {page === 'not-found' && (
             <section className="feature-page not-found" data-active-page="true">
               <PageIntro number="404" eyebrow="A small detour" title="This page isn't connected" description="Let's get you back to a familiar part of your home." />
