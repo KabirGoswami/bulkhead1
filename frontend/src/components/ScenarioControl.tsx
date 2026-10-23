@@ -1,30 +1,36 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import { post, errorText } from '../lib/api';
+import { useBulkhead } from '../lib/session';
 import { Play, RotateCcw, Activity, PlugZap, KeyRound, Download, LoaderCircle } from 'lucide-react';
 import '../styles/controls.css';
 
-const API_BASE = 'http://localhost:8000';
+
 
 export default function ScenarioControl() {
+  const { path, state, canWrite, refresh } = useBulkhead();
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
   const [loading, setLoading] = useState<string | null>(null);
 
   const triggerScenario = async (id: string) => {
-    setLoading(id);
+    setLoading(id); setError(''); setMessage('');
     try {
-      await axios.post(`${API_BASE}/scenario/${id}`);
+      await post(path(`/scenarios/${id}`));
+      setMessage(`Scenario ${id} is running.`); await refresh();
     } catch (e) {
-      console.error(`Failed to trigger scenario ${id}`, e);
+      setError(errorText(e));
     } finally {
       setLoading(null);
     }
   };
 
   const resetScenario = async () => {
-    setLoading('reset');
+    setLoading('reset'); setError(''); setMessage('');
     try {
-      await axios.post(`${API_BASE}/scenario/reset`);
+      const result = await post(path('/scenarios/reset'));
+      setMessage(result.message); await refresh();
     } catch (e) {
-      console.error("Failed to reset scenario", e);
+      setError(errorText(e));
     } finally {
       setLoading(null);
     }
@@ -42,7 +48,7 @@ export default function ScenarioControl() {
         <button
           type="button"
           onClick={resetScenario}
-          disabled={loading !== null}
+          disabled={loading !== null || !canWrite}
           className="scenario-reset"
         >
           {loading === 'reset'
@@ -51,12 +57,15 @@ export default function ScenarioControl() {
           Reset Simulation
         </button>
       </div>
+      {error && <p role="alert" className="app-error">{error}</p>}
+      {message && <p role="status" className="app-notice">{message}</p>}
+      <p className="app-muted">Active scenario: {state?.scenario || "none"} · tick {state?.tick ?? "—"}</p>
       <div className="scenario-grid">
           <button
             type="button"
             aria-label="Scenario A: Compromised Plug"
             onClick={() => triggerScenario('A')}
-            disabled={loading !== null}
+            disabled={loading !== null || !canWrite}
             className="scenario-card scenario-card-a"
           >
             <span className="scenario-icon"><PlugZap size={20} aria-hidden="true" /></span>
@@ -74,7 +83,7 @@ export default function ScenarioControl() {
             type="button"
             aria-label="Scenario B: Stolen Creds"
             onClick={() => triggerScenario('B')}
-            disabled={loading !== null}
+            disabled={loading !== null || !canWrite}
             className="scenario-card scenario-card-b"
           >
             <span className="scenario-icon"><KeyRound size={20} aria-hidden="true" /></span>
@@ -92,7 +101,7 @@ export default function ScenarioControl() {
             type="button"
             aria-label="Scenario C: Benign Update"
             onClick={() => triggerScenario('C')}
-            disabled={loading !== null}
+            disabled={loading !== null || !canWrite}
             className="scenario-card scenario-card-c"
           >
             <span className="scenario-icon"><Download size={20} aria-hidden="true" /></span>

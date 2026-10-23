@@ -3,9 +3,10 @@ import ReactFlow, { Background, Controls, Handle, Position, Node, NodeProps, Edg
 import { Camera, Laptop, Lightbulb, Lock, Network, Plug, Radio, Router, ShieldCheck, Smartphone, Speaker, Target, Thermometer, X, type LucideIcon } from 'lucide-react';
 import 'reactflow/dist/style.css';
 import '../styles/home-map.css';
-import axios from 'axios';
+import { api, errorText } from '../lib/api';
+import { useBulkhead } from '../lib/session';
 
-const API_BASE = 'http://localhost:8000';
+
 
 interface NetworkNodeData {
   label: string;
@@ -48,69 +49,48 @@ export default function HomeMap() {
   const [flow, setFlow] = useState<ReactFlowInstance<NetworkNodeData> | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
 
-  const fetchHomeData = useCallback(async () => {
-    try {
-      const response = await axios.get(`${API_BASE}/state`);
-      const { devices, accounts } = response.data;
-      const newNodes: Node<NetworkNodeData>[] = [];
-      const newEdges: Edge[] = [];
+  const { state, path, error: stateError } = useBulkhead();
+  const [analysisError, setAnalysisError] = useState('');
+  const [analysisLoading, setAnalysisLoading] = useState(false);
 
-      devices.forEach((device: any, index: number) => {
-        newNodes.push({
-          id: device.id,
-          type: 'network',
-          data: { label: device.name, kind: 'device', deviceType: device.type, zone: device.zone },
-          position: { x: (index % 4) * 205, y: 140 + Math.floor(index / 4) * 120 },
-        });
-        // Preserve all network-zone connections, with a quieter visual weight.
-        devices.forEach((other: any) => {
-          if (device.id !== other.id && device.zone === other.zone) {
-            newEdges.push({
-              id: `edge-${device.id}-${other.id}`,
-              source: device.id,
-              target: other.id,
-              type: 'smoothstep',
-              animated: false,
-              className: 'network-zone-edge',
-              style: { stroke: 'var(--muted)', strokeWidth: 1, opacity: 0.3 },
-            });
-          }
-        });
-      });
+  useEffect(() => {
+    if (!state) return;
+    const newNodes: Node<NetworkNodeData>[] = [
+      ...state.devices.map((device: any, index: number) => ({
+        id: device.id, type: 'network',
+        data: { label: device.name, kind: 'device' as const, deviceType: device.type,
+          zone: `${device.zone}${device.isolated ? ' · contained' : ''}` },
+        position: { x: (index % 4) * 205, y: 140 + Math.floor(index / 4) * 120 },
+      })),
+      ...state.accounts.map((account: any, index: number) => ({
+        id: account.id, type: 'network', data: { label: `${account.name}${account.access_revoked ? ' · revoked' : ''}`,
+          kind: 'account' as const, linkedCount: account.access_revoked ? 0 : account.linked_device_ids.length },
+        position: { x: 100 + (index % 2) * 410, y: Math.floor(index / 2) * -105 },
+      })),
+    ];
+    const newEdges: Edge[] = state.edges.map((edge: any, index: number) => ({
+      id: `${edge.source}-${edge.target}-${index}`, source: edge.source, target: edge.target,
+      type: 'smoothstep', label: edge.kind === 'account' ? 'account access' : edge.kind === 'peer' ? 'allowed peer' : undefined,
+      markerEnd: { type: MarkerType.ArrowClosed, color: 'currentColor', width: 14, height: 14 },
+      className: edge.kind === 'account' ? 'network-account-edge' : 'network-zone-edge',
+      style: { stroke: edge.kind === 'account' ? 'var(--accent)' : 'var(--muted)', strokeWidth: 1, opacity: edge.kind === 'account' ? 0.65 : 0.3 },
+      labelStyle: { fill: 'var(--accent)', fontSize: 9 },
+      labelBgStyle: { fill: 'var(--map-bg)' },
+    }));
+    setNodes(newNodes); setEdges(newEdges);
+  }, [state, setNodes, setEdges]);
 
-      accounts.forEach((account: any, index: number) => {
-        newNodes.push({
-          id: account.id,
-          type: 'network',
-          data: { label: account.name, kind: 'account', linkedCount: account.linked_device_ids.length },
-          position: { x: 100 + (index % 2) * 410, y: Math.floor(index / 2) * -105 },
-        });
-        account.linked_device_ids.forEach((deviceId: string) => {
-          newEdges.push({
-            id: `acc-edge-${account.id}-${deviceId}`,
-            source: account.id,
-            target: deviceId,
-            type: 'smoothstep',
-            label: 'linked',
-            // Keep the marker ID stable while its inherited color follows the theme.
-            markerEnd: { type: MarkerType.ArrowClosed, color: 'currentColor', width: 14, height: 14 },
-            className: 'network-account-edge',
-            style: { stroke: 'var(--accent)', strokeWidth: 1.3, opacity: 0.64 },
-            labelStyle: { fill: 'var(--accent)', fontSize: 9, fontWeight: 500 },
-            labelBgStyle: { fill: 'var(--map-bg)', fillOpacity: 0.94 },
-            labelBgPadding: [5, 3],
-            labelBgBorderRadius: 4,
-          });
-        });
-      });
-      setNodes(newNodes);
-      setEdges(newEdges);
-    } catch (error) {
-      console.error('Failed to fetch home data', error);
-    }
-  }, []);
-
-  useEffect(() => { fetchHomeData(); }, [fetchHomeData]);
+  useEffect(() => {
+    setBlastRadius([]); setAnalysisError('');
+    if (!selectedNode) return;
+    const controller = new AbortController();
+    setAnalysisLoading(true);
+    api(path(`/blast/${selectedNode}`), { signal: controller.signal })
+      .then(response => { if (!controller.signal.aborted) setBlastRadius(response.reachable); })
+      .catch(err => { if (!controller.signal.aborted) setAnalysisError(errorText(err)); })
+      .finally(() => { if (!controller.signal.aborted) setAnalysisLoading(false); });
+    return () => controller.abort();
+  }, [selectedNode, path, state?.sequence]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -129,28 +109,21 @@ export default function HomeMap() {
     return () => { observer.disconnect(); cancelAnimationFrame(frame); };
   }, [flow, nodes.length]);
 
-  const onNodeClick = async (_event: React.MouseEvent, node: Node) => {
-    setSelectedNode(node.id);
-    try {
-      const response = await axios.get(`${API_BASE}/blast/${node.id}`);
-      setBlastRadius(response.data.reachable);
-    } catch (error) {
-      console.error('Failed to fetch blast radius', error);
-    }
-  };
+  const onNodeClick = (_event: React.MouseEvent, node: Node) => setSelectedNode(node.id);
 
   useEffect(() => {
     setNodes(current => current.map(node => ({
-      ...node,
-      data: { ...node.data, status: node.id === selectedNode ? 'source' : blastRadius.includes(node.id) ? 'reachable' : 'normal' },
+      ...node, data: { ...node.data, status: node.id === selectedNode ? 'source' : blastRadius.includes(node.id) ? 'reachable' : 'normal' },
     })));
-  }, [selectedNode, blastRadius, setNodes]);
+  }, [selectedNode, blastRadius, state, setNodes]);
 
   const selectedLabel = nodes.find(node => node.id === selectedNode)?.data.label;
 
   return (
     <ReactFlowProvider>
     <div className="map-workspace">
+      {stateError && <p role="alert" className="app-error">Map unavailable: {stateError}</p>}
+      {!state && !stateError && <p role="status">Loading the household map…</p>}
       <div className="map-toolbar">
         <div className="map-legend" aria-label="Network map legend">
           <span><i className="map-legend-device" /> Device</span>
@@ -177,7 +150,8 @@ export default function HomeMap() {
           </div>
           <strong className="map-analysis-name">{selectedLabel}</strong>
           <span className="map-analysis-id">{selectedNode}</span>
-          <div className="map-analysis-result"><span>Blast radius</span><strong>{blastRadius.length} nodes affected</strong></div>
+          <div className="map-analysis-result"><span>Blast radius</span><strong>{analysisLoading ? "Loading…" : analysisError ? "Unavailable" : `${blastRadius.length} nodes affected`}</strong></div>
+          {analysisError && <p role="alert" className="app-error">{analysisError}</p>}
           <div className="map-analysis-key"><span><i className="map-key-source" /> Selected source</span><span><i className="map-key-reachable" /> Reachable</span></div>
         </div>
       )}

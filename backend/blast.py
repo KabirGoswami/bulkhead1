@@ -1,80 +1,66 @@
-from typing import List, Set, Dict, Tuple
 from collections import deque
+from fnmatch import fnmatchcase
 from models import HomeState
 
-def get_reachable_nodes(state: HomeState, start_node_id: str) -> Set[str]:
-    """
-    Calculates all reachable devices and accounts from a starting node.
-    Reachability is defined as:
-    1. Same zone reachability (Simplified: if they share a zone, they can potentially reach each other).
-    2. Explicit peer rules (allowed_peers).
-    3. Account links (compromised account reaches all linked devices).
-    """
-    reachable = {start_node_id}
-    queue = deque([start_node_id])
 
-    # Create lookups for faster access
-    device_map = {d.id: d for d in state.devices}
-    account_map = {a.id: a for a in state.accounts}
+def traffic_allowed(state, source, target):
+    devices = {d.id: d for d in state.devices}
+    src, dst = devices.get(source), devices.get(target)
+    if not src:
+        return False
+    if src.isolated or src.approval != "approved" or (dst and (dst.isolated or dst.approval != "approved")):
+        return False
+    if dst:
+        if src.policy_peers is not None:
+            return target in src.policy_peers
+        return src.zone == dst.zone or target in src.allowed_peers
+    destinations = src.policy_destinations if src.policy_destinations is not None else src.allowed_destinations
+    return any(rule == "*" or fnmatchcase(target, rule) or rule == "*." + target for rule in destinations)
 
-    # Map zones to devices
-    zone_map: Dict[str, List[str]] = {}
-    for d in state.devices:
-        zone_map.setdefault(d.zone, []).append(d.id)
 
-    # Map accounts to devices
-    account_to_devices: Dict[str, List[str]] = {}
-    for a in state.accounts:
-        account_to_devices[a.id] = a.linked_device_ids
+def topology_edges(state):
+    edges = []
+    devices = {d.id: d for d in state.devices}
+    accounts = {a.id: a for a in state.accounts}
+    for device in state.devices:
+        for peer in state.devices:
+            if peer.id != device.id and traffic_allowed(state, device.id, peer.id):
+                edges.append({"source": device.id, "target": peer.id,
+                              "kind": "peer" if peer.id in device.allowed_peers else "zone"})
+        # Network isolation cannot revoke a compromised vendor identity.
+        for account_id in device.account_ids:
+            if account_id in accounts and not accounts[account_id].access_revoked:
+                edges.append({"source": device.id, "target": account_id, "kind": "account"})
+    for account in state.accounts:
+        if not account.access_revoked:
+            for device_id in account.linked_device_ids:
+                if device_id in devices:
+                    edges.append({"source": account.id, "target": device_id, "kind": "account"})
+    return edges
 
+
+def get_reachable_nodes(state: HomeState, start_node_id: str):
+    nodes = {d.id for d in state.devices} | {a.id for a in state.accounts}
+    if start_node_id not in nodes:
+        return set()
+    graph = {}
+    for edge in topology_edges(state):
+        graph.setdefault(edge["source"], []).append(edge["target"])
+    reached, queue = {start_node_id}, deque([start_node_id])
     while queue:
-        current = queue.popleft()
+        for peer in graph.get(queue.popleft(), []):
+            if peer not in reached:
+                reached.add(peer)
+                queue.append(peer)
+    return reached
 
-        # If current is a device
-        if current in device_map:
-            device = device_map[current]
 
-            # 1. Zone Reachability
-            for peer_id in zone_map.get(device.zone, []):
-                if peer_id not in reachable:
-                    reachable.add(peer_id)
-                    queue.append(peer_id)
-
-            # 2. Explicit Peer Rules
-            for peer_id in device.allowed_peers:
-                if peer_id not in reachable:
-                    reachable.add(peer_id)
-                    queue.append(peer_id)
-
-            # 3. Account Links
-            for acc_id in device.account_ids:
-                if acc_id not in reachable:
-                    reachable.add(acc_id)
-                    queue.append(acc_id)
-
-        # If current is an account
-        elif current in account_map:
-            for dev_id in account_to_devices.get(current, []):
-                if dev_id not in reachable:
-                    reachable.add(dev_id)
-                    queue.append(dev_id)
-
-    return reachable
-
-def calculate_exposure_score_fixed(state: HomeState) -> float:
+def calculate_exposure_score_fixed(state):
     weights = {"low": 1, "medium": 3, "high": 7, "safety": 15}
-    device_map = {d.id: d for d in state.devices}
-    total_potential_weight = sum(weights.get(d.criticality, 1) for d in state.devices)
-
-    if total_potential_weight == 0: return 0.0
-
-    max_impact = 0
-    all_nodes = list(device_map.keys()) + [a.id for a in state.accounts]
-
-    for node in all_nodes:
-        reachable = get_reachable_nodes(state, node)
-        impact = sum(weights.get(device_map[d_id].criticality, 1)
-                     for d_id in reachable if d_id in device_map)
-        max_impact = max(max_impact, impact)
-
-    return min(100.0, (max_impact / total_potential_weight) * 100)
+    weighted = {d.id: weights.get(d.criticality, 1) for d in state.devices}
+    total = sum(weighted.values())
+    if not total:
+        return 0.0
+    nodes = [*weighted, *(a.id for a in state.accounts)]
+    return min(100.0, max(sum(weighted.get(n, 0) for n in get_reachable_nodes(state, node))
+                          for node in nodes) / total * 100)

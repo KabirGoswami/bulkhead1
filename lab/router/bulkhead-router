@@ -1,0 +1,75 @@
+#!/bin/ash
+# Forced-command gateway key. No caller-controlled shell commands are evaluated.
+set -eu
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+umask 077
+input="$(head -c 4097)"
+[ "${#input}" -le 4096 ] || exit 64
+op="$(jsonfilter -s "$input" -e '@.op')"
+case "$op" in status|quarantine|restore|dry_run) ;; *) exit 64 ;; esac
+mapping=/etc/bulkhead/mapping.json
+[ -f "$mapping" ] || exit 78
+expected_id="$(jsonfilter -i "$mapping" -e '@.device_id')"
+expected_ip="$(jsonfilter -i "$mapping" -e '@.ipv4')"
+expected_mac="$(jsonfilter -i "$mapping" -e '@.mac')"
+# Initial fixture deliberately supports just this one non-management synthetic endpoint.
+[ "$expected_ip" = 192.168.10.10 ] || exit 78
+[ "$expected_mac" = 02:00:00:00:10:10 ] || exit 78
+id="$(jsonfilter -s "$input" -e '@.device_id')"
+ip="$(jsonfilter -s "$input" -e '@.ipv4')"
+mac="$(jsonfilter -s "$input" -e '@.mac')"
+[ "$id" = "$expected_id" ] && [ "$ip" = "$expected_ip" ] && [ "$mac" = "$expected_mac" ] || exit 65
+action="$(jsonfilter -s "$input" -e '@.action_id')"
+[ "${#action}" -eq 36 ] || exit 65
+case "$action" in *[!0-9a-f-]*) exit 65 ;; esac
+lock=/tmp/bulkhead-helper.lock
+mkdir "$lock" 2>/dev/null || exit 75
+batch="$(mktemp)"
+trap 'rm -f "$batch"; rmdir "$lock"' EXIT HUP INT TERM
+blocked() { nft get element ip bulkhead blocked "{ $expected_ip }" >/dev/null 2>&1; }
+state() {
+    if blocked; then printf '{"router_state":"blocked"}\n'; else printf '{"router_state":"restored"}\n'; fi
+}
+if [ "$op" = status ]; then state; exit 0; fi
+if [ "$op" = dry_run ]; then
+    # No nft mutation, no timeout refresh, no state-file mutation.
+    printf '{"router_state":"unchanged","plan":"block routed IPv4 to and from the mapped fixture only"}\n'
+    exit 0
+fi
+if [ "$op" = restore ]; then
+    if blocked; then
+        [ "$(cat /tmp/bulkhead-action 2>/dev/null)" = "$action" ] || exit 65
+        printf 'flush set ip bulkhead blocked\n' > "$batch"
+        nft --check --file "$batch"
+        nft --file "$batch"
+    fi
+    rm -f /tmp/bulkhead-action
+    state
+    exit 0
+fi
+ttl="$(jsonfilter -s "$input" -e '@.ttl')"
+case "$ttl" in ''|*[!0-9]*) exit 65 ;; esac
+[ "$ttl" -ge 1 ] && [ "$ttl" -le 900 ] || exit 65
+if blocked; then
+    # Replayed commands do not extend the original quarantine lease.
+    [ "$(cat /tmp/bulkhead-action 2>/dev/null)" = "$action" ] || exit 65
+    state
+    exit 0
+fi
+ping -c 1 -W 1 "$expected_ip" >/dev/null 2>&1 || true
+ip neigh show "$expected_ip" | grep -F "lladdr $expected_mac " >/dev/null || exit 65
+if nft list table ip bulkhead >/dev/null 2>&1; then
+    printf 'delete table ip bulkhead\n' >> "$batch"
+fi
+cat >> "$batch" <<RULES
+add table ip bulkhead
+add set ip bulkhead blocked { type ipv4_addr; flags timeout; timeout ${ttl}s; }
+add element ip bulkhead blocked { $expected_ip timeout ${ttl}s }
+add chain ip bulkhead forward { type filter hook forward priority -10; policy accept; }
+add rule ip bulkhead forward ip saddr @blocked counter drop
+add rule ip bulkhead forward ip daddr @blocked counter drop
+RULES
+nft --check --file "$batch"
+nft --file "$batch"
+printf '%s' "$action" > /tmp/bulkhead-action
+state

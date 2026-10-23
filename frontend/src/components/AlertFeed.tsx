@@ -1,104 +1,46 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { ArrowUpRight, ShieldCheck, Shield, Radio } from 'lucide-react';
+import { useState } from 'react';
+import { ShieldCheck, Radio } from 'lucide-react';
+import { post, api, errorText } from '../lib/api';
+import { useBulkhead } from '../lib/session';
 import '../styles/inspector.css';
 
-const API_BASE = 'http://localhost:8000';
-const WS_BASE = 'ws://localhost:8000';
-
-interface Alert {
-  id: string;
-  node_id: string;
-  confidence: 'low' | 'medium' | 'high';
-  reason_codes: string[];
-  explanation: string;
-  timestamp: string;
-  action_taken?: string;
-  response?: {
-    level: number;
-    action: string;
-    requires_confirmation: boolean;
-    can_auto_act: boolean;
-    explanation: string;
-  };
-}
-
 export default function AlertFeed() {
-  const [alerts, setAlerts] = useState<Alert[]>([]);
-
-  useEffect(() => {
-    const ws = new WebSocket(`${WS_BASE}/ws`);
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.type === 'SIM_TICK' && data.payload.alerts) {
-        setAlerts(prev => [...data.payload.alerts, ...prev].slice(0, 50));
-      }
-    };
-    return () => ws.close();
-  }, []);
-
-  const handleConfirmAction = async (alertId: string, nodeId: string) => {
-    try {
-      await axios.post(`${API_BASE}/action/confirm`, { alert_id: alertId, node_id: nodeId, action: 'CONTAIN' });
-    } catch (e) {
-      console.error("Action failed", e);
-    }
+  const { state, path, stream, refresh, canWrite } = useBulkhead();
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState<string | null>(null);
+  const [keys] = useState(() => new Map<string, string>());
+  const incidents = state?.incidents || [];
+  const act = async (id: string, operation: () => Promise<any>) => {
+    setBusy(id); setError('');
+    try { await operation(); await refresh(); } catch (err) { setError(errorText(err)); } finally { setBusy(null); }
   };
-
-  const handleUndo = async (actionId: string) => {
-    try {
-      await axios.post(`${API_BASE}/action/undo`, { action_id: actionId });
-    } catch (e) {
-      console.error("Undo failed", e);
-    }
+  const confirm = (incident: any) => {
+    if (!keys.has(incident.id)) keys.set(incident.id, crypto.randomUUID());
+    return post(path('/actions'), { incident_id: incident.id, action: incident.alert.response.action,
+      policy_revision: state.policy_revision, command_id: keys.get(incident.id) });
   };
-
-  return (
-    <div className="inspector-content">
-      <div className="inspector-heading">
-        <div>
-          <span className="inspector-eyebrow">Stay a step ahead</span>
-          <h3>Security Alerts</h3>
-        </div>
-        <span className="inspector-count">{alerts.length}<span className="inspector-sr-only"> Events</span></span>
-      </div>
-      <p className="inspector-description">Detection and response, as they happen.</p>
-
-      {alerts.length === 0 ? (
-        <div className="inspector-empty inspector-empty--inset">
-          <span className="inspector-empty-icon"><ShieldCheck size={30} strokeWidth={1.5} /></span>
-          <h4>No threats detected.</h4>
-          <p>Monitoring simulated traffic...</p>
-          <span className="inspector-stream-label"><Radio size={12} aria-hidden="true" /> Simulation event stream</span>
-        </div>
-      ) : (
-        <div className="inspector-card-list">
-          {alerts.map(alert => (
-            <article key={alert.id} className="alert-card">
-              <div className="inspector-card-meta">
-                <span className={`inspector-badge inspector-badge--${alert.confidence === 'high' ? 'critical' : alert.confidence === 'medium' ? 'high' : 'low'}`}>
-                  <span className="inspector-badge-dot" />{alert.confidence} Confidence
-                </span>
-                <time dateTime={alert.timestamp}>{new Date(alert.timestamp).toLocaleTimeString()}</time>
-              </div>
-              <h4>{alert.node_id}</h4>
-              <p>{alert.explanation}</p>
-
-              {alert.action_taken === 'CONTAINED' ? (
-                <div className="alert-contained"><Shield size={14} aria-hidden="true" /><span>Auto-Contained</span></div>
-              ) : alert.response ? (
-                <div className="alert-response">
-                  <span className="inspector-eyebrow">Suggested Action</span>
-                  <p>{alert.response.explanation}</p>
-                  <button onClick={() => handleConfirmAction(alert.id, alert.node_id)} className="alert-confirm-button">
-                    Confirm<ArrowUpRight size={15} aria-hidden="true" />
-                  </button>
-                </div>
-              ) : null}
-            </article>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+  return <div className="inspector-content">
+    <div className="inspector-heading"><div><span className="inspector-eyebrow">Detection & incident response</span><h3>Security Alerts</h3></div><span className="inspector-count">{incidents.length}</span></div>
+    <p className="inspector-description">{stream} · {state?.worker.healthy ? 'Worker healthy' : 'Worker unavailable; detection is paused'}</p>
+    {error && <p role="alert" className="app-error">{error}</p>}
+    {!state ? <p role="status">Loading incidents…</p> : incidents.length === 0 ? <div className="inspector-empty inspector-empty--inset"><ShieldCheck size={30} /><h4>No incidents recorded</h4><p>{stream === 'Live' && state.worker.healthy ? 'Monitoring simulated traffic.' : 'Waiting for live detection.'}</p><span className="inspector-stream-label"><Radio size={12} /> Authenticated event stream</span></div> :
+      <div className="inspector-card-list">{incidents.map((incident: any) => {
+        const alert = incident.alert;
+        const actions = state.actions.filter((a: any) => a.incident_id === incident.id);
+        const active = actions.some((a: any) => ['applied','verified','planned'].includes(a.state));
+        return <article key={incident.id} className="alert-card">
+          <div className="inspector-card-meta"><span className="inspector-badge">{incident.status} · {alert.confidence} confidence</span><time dateTime={incident.created_at}>{new Date(incident.created_at).toLocaleString()}</time></div>
+          <h4>{state.devices.find((d: any) => d.id === alert.node_id)?.name || state.accounts.find((a: any) => a.id === alert.node_id)?.name || alert.node_id}</h4>
+          <p>{alert.explanation}</p><p className="app-muted">{alert.reason_codes.join(' · ')}</p>
+          <div className="alert-response"><p>{alert.response.explanation}</p>
+            {incident.status !== 'resolved' && !active && alert.response.requires_confirmation && ['CONTAIN','REVOKE'].includes(alert.response.action) && <button disabled={!canWrite || busy !== null} className="alert-confirm-button" onClick={() => act(incident.id, () => confirm(incident))}>Confirm {alert.response.action === 'REVOKE' ? 'simulated account revocation' : 'simulated containment'}</button>}
+            {alert.response.action === 'NOTIFY' && <p className="app-muted">Notify only. No containment is offered.</p>}
+          </div>
+          {actions.map((action: any) => <div className="app-notice" key={action.id}><p>{action.action_type} · {action.state} · {action.execution_mode}</p><code>{action.id}</code>{action.expires_at && <p className="app-muted">Lease expires {new Date(action.expires_at * 1000).toLocaleString()}{action.expired && action.state !== 'rolled_back' ? " · awaiting recovery verification" : ""}</p>}{['applied','verified'].includes(action.state) && action.execution_mode === 'simulation' && <button className="app-link" disabled={!canWrite || busy !== null} onClick={() => act(action.id, async () => { const result = await post(path(`/actions/${action.id}/undo`)); keys.delete(incident.id); return result; })}>Undo and recover access</button>}</div>)}
+          <div className="app-row">{incident.status === 'open' && <button className="app-link" disabled={!canWrite || busy !== null} onClick={() => act(incident.id, () => api(path(`/incidents/${incident.id}`), { method: 'PATCH', body: JSON.stringify({ status: 'acknowledged' }) }))}>Acknowledge</button>}
+            <button className="app-link" disabled={!canWrite || busy !== null} onClick={() => act(incident.id, () => api(path(`/incidents/${incident.id}`), { method: 'PATCH', body: JSON.stringify({ status: incident.status === 'resolved' ? 'open' : 'resolved' }) }))}>{incident.status === 'resolved' ? 'Reopen incident' : 'Resolve incident'}</button>
+          </div><p className="app-muted">Resolution retains containment history. Undo restores simulated access; account revocation and network containment are separate actions.</p>
+        </article>;
+      })}</div>}
+  </div>;
 }

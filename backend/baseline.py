@@ -12,6 +12,7 @@ class DeviceBaseline:
         self.byte_counts: List[int] = []
         self.login_geos: Set[str] = set()
         self.is_learned = False
+        self.sample_count = 0
 
     def update(self, flow: Optional[FlowEvent] = None, auth: Optional[AuthEvent] = None):
         if flow:
@@ -62,11 +63,27 @@ class BaselineEngine:
 
         baseline = self.get_baseline(node_id)
 
-        if self.current_tick <= self.learning_period:
+        if not baseline.is_learned:
             baseline.update(
                 flow=event if isinstance(event, FlowEvent) else None,
                 auth=event if isinstance(event, AuthEvent) else None
             )
-            if self.current_tick == self.learning_period:
-                for b in self.baselines.values():
-                    b.finalize()
+            baseline.sample_count += 1
+            if baseline.sample_count >= self.learning_period:
+                baseline.finalize()
+
+    def dump(self):
+        return {key: {"destinations": sorted(b.known_destinations), "peers": sorted(b.known_peers),
+                      "bytes": b.byte_counts[-100:], "geos": sorted(b.login_geos),
+                      "learned": b.is_learned, "samples": b.sample_count}
+                for key, b in self.baselines.items()}
+
+    def restore(self, data):
+        for key, value in data.items():
+            b = self.get_baseline(key)
+            b.known_destinations = set(value["destinations"])
+            b.known_peers = set(value["peers"])
+            b.byte_counts = value["bytes"]
+            b.login_geos = set(value["geos"])
+            b.is_learned = value["learned"]
+            b.sample_count = value["samples"]

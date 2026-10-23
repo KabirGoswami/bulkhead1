@@ -1,30 +1,36 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import { post, errorText } from '../lib/api';
+import { useBulkhead } from '../lib/session';
 import { UserRound } from 'lucide-react';
 import '../styles/controls.css';
 
-const API_BASE = 'http://localhost:8000';
+
 
 export default function ProfileSwitcher() {
-  const [profile, setProfile] = useState('Admin');
+  const { state, path, refresh, canWrite } = useBulkhead();
+  const profile = state?.profile;
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
 
   const handleProfileChange = async (newProfile: string) => {
-    setProfile(newProfile);
+    setBusy(true); setError('');
     try {
-      await axios.post(`${API_BASE}/profile`, { profile: newProfile });
+      await post(path('/profile'), { profile: newProfile });
+      await refresh();
     } catch (e) {
-      console.error("Failed to change profile", e);
-    }
+      setError(errorText(e));
+    } finally { setBusy(false); }
   };
 
   return (
     <div className="profile-switcher">
       <span className="profile-label"><UserRound size={14} aria-hidden="true" /> Profile</span>
-      <div className="profile-options" role="group" aria-label="User profile">
+      <div className="profile-options" role="group" aria-label="Response profile">
         {['Admin', 'Family', 'Work', 'Solo'].map(p => (
           <button
             key={p}
             type="button"
+            disabled={busy || !canWrite || !state}
             onClick={() => handleProfileChange(p)}
             aria-pressed={profile === p}
             className={`profile-option${profile === p ? ' profile-option-active' : ''}`}
@@ -33,6 +39,7 @@ export default function ProfileSwitcher() {
           </button>
         ))}
       </div>
+      {error && <span role="alert" className="app-error">{error}</span>}
     </div>
   );
 }

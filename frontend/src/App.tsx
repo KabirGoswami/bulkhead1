@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import axios from 'axios';
+import { useBulkhead, useSession } from './lib/session';
+import { errorText } from './lib/api';
+import AccountPages from './components/AccountPages';
+import DevicesPage from './components/DevicesPage';
+import PoliciesPage from './components/PoliciesPage';
+import HouseholdPage from './components/HouseholdPage';
 import {
   Activity, ArrowRight, ArrowUp, ArrowUpRight,
   CircleDot, Fingerprint, History, House, Menu, Network, Play, Shield,
@@ -14,21 +19,25 @@ import ProfileSwitcher from './components/ProfileSwitcher';
 import LandingIntro from './components/LandingIntro';
 import ThemePicker from './components/ThemePicker';
 
-const API_BASE = 'http://localhost:8000';
 const pages = [
   { id: 'overview', label: 'Home', icon: House, href: '#/' },
   { id: 'network', label: 'Network', icon: Network, href: '#/network' },
   { id: 'health', label: 'Access health', icon: ShieldCheck, href: '#/health' },
   { id: 'alerts', label: 'Alerts', icon: Activity, href: '#/alerts' },
   { id: 'timeline', label: 'Timeline', icon: History, href: '#/timeline' },
+  { id: 'devices', label: 'Devices', icon: Network, href: '#/devices' },
+  { id: 'policies', label: 'Policies', icon: Shield, href: '#/policies' },
+  { id: 'household', label: 'Household', icon: UsersRound, href: '#/household' },
   { id: 'simulation', label: 'Simulation', icon: Play, href: '#/simulation' },
 ] as const;
-type Page = typeof pages[number]['id'] | 'not-found';
+type Page = typeof pages[number]['id'] | 'not-found' | 'login' | 'register' | 'verify' | 'recover' | 'reset' | 'onboarding';
 
 function currentPage(): Page {
-  const path = window.location.hash.replace(/^#\/?/, '').replace(/\/$/, '');
+  const path = window.location.hash.split('?')[0].replace(/^#\/?/, '').replace(/\/$/, '');
+  const invite = new URLSearchParams(window.location.hash.split('?')[1] || '').get('invite');
+  if (invite) { try { sessionStorage.setItem('bulkhead.invite', invite); } catch { /* The token remains available in this route. */ } }
   if (!path) return 'overview';
-  return pages.some(page => page.id === path) ? path as Page : 'not-found';
+  return pages.some(page => page.id === path) || ['login','register','verify','recover','reset','onboarding'].includes(path) ? path as Page : 'not-found';
 }
 
 function PageIntro({ number, eyebrow, title, description }: { number: string; eyebrow: string; title: string; description: string }) {
@@ -43,11 +52,16 @@ function PageIntro({ number, eyebrow, title, description }: { number: string; ey
 
 export default function App() {
   const [page, setPage] = useState<Page>(currentPage);
+  const [routeHash, setRouteHash] = useState(window.location.hash);
+  const [accountError, setAccountError] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
-  const [exposureScore, setExposureScore] = useState(0);
-  const [deviceCount, setDeviceCount] = useState<number | null>(null);
-  const [accountCount, setAccountCount] = useState<number | null>(null);
-  const [connected, setConnected] = useState(false);
+  const session = useSession();
+  const { state, stream, error, refresh } = useBulkhead();
+  const exposureScore = state?.exposure_score ?? 0;
+  const deviceCount = state?.devices.length ?? null;
+  const accountCount = state?.accounts.length ?? null;
+  const connected = stream === 'Live' && state?.worker.healthy && !error;
+  const accountView = ['login','register','verify','recover','reset','onboarding'].includes(page) || (page !== 'overview' && (!session.user || !session.home));
   const focusPage = useRef(false);
   const menuButton = useRef<HTMLButtonElement>(null);
 
@@ -55,6 +69,7 @@ export default function App() {
     const changePage = () => {
       focusPage.current = true;
       setPage(currentPage());
+      setRouteHash(window.location.hash);
       setMenuOpen(false);
       window.scrollTo(0, 0);
     };
@@ -91,23 +106,6 @@ export default function App() {
     };
   }, [menuOpen]);
 
-  useEffect(() => {
-    const fetchScore = async () => {
-      try {
-        const res = await axios.get(`${API_BASE}/state`);
-        setExposureScore(res.data.exposure_score);
-        setDeviceCount(res.data.devices.length);
-        setAccountCount(res.data.accounts.length);
-        setConnected(true);
-      } catch (error) {
-        setConnected(false);
-        console.error(error);
-      }
-    };
-    fetchScore();
-    const interval = setInterval(fetchScore, 5000);
-    return () => clearInterval(interval);
-  }, []);
 
   const securitySummary = (
     <section className="summary-grid" aria-label="Home security summary">
@@ -152,6 +150,7 @@ export default function App() {
           </nav>
           <div className="site-header__actions">
             <ThemePicker />
+            {!session.user && <a className="app-link" href="#/login">Sign in</a>}
             <button ref={menuButton} className="mobile-menu-button" type="button" aria-expanded={menuOpen} aria-controls="site-navigation" aria-label={menuOpen ? 'Close navigation' : 'Open navigation'} onClick={() => setMenuOpen(open => !open)}>
               {menuOpen ? <X size={21} /> : <Menu size={21} />}
             </button>
@@ -160,10 +159,14 @@ export default function App() {
       </header>
 
       <main id="main-content" tabIndex={-1} className={`site-main ${page === 'overview' ? 'site-main--home' : ''}`}>
+        {accountView ? <AccountPages key={routeHash} page={page} /> : <>
         {page === 'overview' && <div data-active-page="true"><LandingIntro /></div>}
         <div className="page-container">
+          {session.user && <div className="household-bar"><label htmlFor="active-household">Household</label><select id="active-household" className="household-select" value={session.home?.id || ''} onChange={e => session.choose(e.target.value)}>{session.homes.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}</select><span>{session.home?.role} access</span><a href="#/household">Settings</a><button className="app-link" onClick={() => session.logout().catch(err => setAccountError(errorText(err)))}>Sign out</button></div>}
+          <div className="capability-note">Simulation is the default. The OpenWrt adapter is {state?.capabilities?.adapter_enabled ? 'enabled' : 'disabled'}; dry-run is {state?.capabilities?.dry_run === false ? 'off' : 'on'}. The lab demonstrates routed VM isolation. Physical-device protection, vendor-cloud enforcement and the public simulator are later phases.</div>
+          {(error || accountError) && <div role="alert" className="app-error">{error || accountError} · Displayed data may be stale. <button className="app-link" onClick={refresh}>Retry</button></div>}
           <div className="workspace-toolbar" hidden={page === 'overview' || page === 'not-found'}>
-            <div className="workspace-toolbar__status"><span className={`status-dot ${connected ? '' : 'status-dot--offline'}`} /><span>{connected ? 'API connected' : 'Waiting for API'}</span><span className="toolbar-divider" /><span>Simulation mode</span></div>
+            <div className="workspace-toolbar__status"><span className={`status-dot ${connected ? '' : 'status-dot--offline'}`} /><span>{connected ? 'Live · worker healthy' : `${stream} · ${state?.worker.healthy ? 'worker healthy' : 'worker unavailable'}`}</span><span className="toolbar-divider" /><span>Simulation mode</span></div>
             <ProfileSwitcher />
           </div>
 
@@ -190,11 +193,11 @@ export default function App() {
           {/* Keep these views mounted so their event histories survive page navigation. */}
           <section className="feature-page feature-page--alerts" hidden={page !== 'alerts'} data-active-page={page === 'alerts'}>
             <PageIntro number="03" eyebrow="Detection & response" title="The signals that matter" description="Review simulated threats, understand the evidence, and confirm suggested actions when your attention is needed." />
-            <div className="feature-surface"><AlertFeed /></div>
+            <div className="feature-surface">{session.user && <AlertFeed />}</div>
           </section>
           <section className="feature-page feature-page--timeline" hidden={page !== 'timeline'} data-active-page={page === 'timeline'}>
             <PageIntro number="04" eyebrow="Event history" title="See the whole sequence" description="Follow each signal from detection to explanation and containment, in the order it reaches your home." />
-            <div className="feature-surface"><Timeline /></div>
+            <div className="feature-surface">{session.user && <Timeline />}</div>
           </section>
 
           {page === 'simulation' && (
@@ -211,6 +214,9 @@ export default function App() {
               </section>
             </section>
           )}
+          {page === 'devices' && <section data-active-page="true"><PageIntro number="06" eyebrow="Device inventory" title="Know what is connected" description="Approve devices, choose their zones, and record firmware and trusted lab mappings." /><DevicesPage /></section>}
+          {page === 'policies' && <section data-active-page="true"><PageIntro number="07" eyebrow="Access policies" title="Give access a boundary" description="Preview persistent access rules and expiring grants before applying them to the simulation." /><PoliciesPage /></section>}
+          {page === 'household' && <section data-active-page="true"><PageIntro number="08" eyebrow="Household settings" title="Your private household" description="Manage membership, invitations, sessions, notifications and lab enrollment." /><HouseholdPage key={routeHash} /></section>}
           {page === 'not-found' && (
             <section className="feature-page not-found" data-active-page="true">
               <PageIntro number="404" eyebrow="A small detour" title="This page isn't connected" description="Let's get you back to a familiar part of your home." />
@@ -218,6 +224,7 @@ export default function App() {
             </section>
           )}
         </div>
+        </>}
       </main>
 
       <footer className="site-footer">

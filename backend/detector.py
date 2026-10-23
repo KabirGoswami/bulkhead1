@@ -1,17 +1,21 @@
 from typing import List, Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from events import FlowEvent, AuthEvent
 from baseline import DeviceBaseline
 from alert_model import Alert
+from uuid import uuid4
 
 class DetectorEngine:
-    def __init__(self, baseline_engine):
+    def __init__(self, baseline_engine, internal_ids=None):
         self.baseline_engine = baseline_engine
+        self.internal_ids = set(internal_ids) if internal_ids is not None else {"camera_1", "lock_1", "hub", "router"}
         self.alert_history: List[Alert] = []
 
     def analyze_event(self, event: Any) -> Optional[Alert]:
         node_id = None
         if isinstance(event, FlowEvent):
+            if event.verified_vendor_update and event.port == 443:
+                return None
             node_id = event.src
         elif isinstance(event, AuthEvent):
             node_id = event.account_id
@@ -38,7 +42,7 @@ class DetectorEngine:
 
             # 3. First Lateral Connection
             # (Simplification: any internal peer not in baseline)
-            if event.dst in ["camera_1", "lock_1", "hub", "router"] and event.dst not in baseline.known_peers:
+            if event.dst in self.internal_ids and event.dst not in baseline.known_peers:
                 signals.append("FIRST_LATERAL_CONNECTION")
 
         # --- Auth Analysis ---
@@ -64,21 +68,21 @@ class DetectorEngine:
         explanation = self.generate_explanation(node_id, signals, event)
 
         return Alert(
-            id=f"alert_{int(datetime.now().timestamp())}",
+            id=str(uuid4()),
             node_id=node_id,
             confidence=confidence,
             reason_codes=signals,
             explanation=explanation,
-            timestamp=datetime.now()
+            timestamp=datetime.now(timezone.utc)
         )
 
     def generate_explanation(self, node_id: str, signals: List[str], event: Any) -> str:
         parts = []
         if "NEW_EXTERNAL_DESTINATION" in signals:
             dst = event.dst if isinstance(event, FlowEvent) else "unknown"
-            parts.append(f"sent data to an unknown server ({dst})")
+            parts.append(f"attempted to send data to an unknown destination ({dst})")
         if "VOLUME_SPIKE" in signals:
-            parts.append(f"sent {event.bytes} bytes (significant spike)")
+            parts.append(f"attempted to transfer {event.bytes} bytes (significant spike)")
         if "FIRST_LATERAL_CONNECTION" in signals:
             dst = event.dst if isinstance(event, FlowEvent) else "unknown"
             parts.append(f"attempted to reach {dst} for the first time")
@@ -86,6 +90,6 @@ class DetectorEngine:
             geo = event.geo if isinstance(event, AuthEvent) else "unknown"
             parts.append(f"login attempt from unusual location ({geo})")
         if "FAILED_LOGIN_ATTEMPT" in signals:
-            parts.append("multiple failed login attempts detected")
+            parts.append("a failed login attempt was observed")
 
         return f"The node {node_id} { ' and '.join(parts)}."

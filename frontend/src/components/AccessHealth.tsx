@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { api, post, errorText } from '../lib/api';
+import { useBulkhead } from '../lib/session';
 import { ArrowUpRight, LoaderCircle, ShieldCheck, ShieldAlert } from 'lucide-react';
 import '../styles/inspector.css';
 
-const API_BASE = 'http://localhost:8000';
+
 
 interface Finding {
   id: string;
@@ -13,20 +14,24 @@ interface Finding {
   title: string;
   explanation: string;
   fix_type: string;
+  executable: boolean;
   fix_params: any;
 }
 
 export default function AccessHealth() {
   const [findings, setFindings] = useState<Finding[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState<string | null>(null);
+  const { path, state, canWrite, refresh } = useBulkhead();
 
   const fetchAudit = async () => {
-    setLoading(true);
+    setLoading(true); setError('');
     try {
-      const response = await axios.get(`${API_BASE}/audit`);
-      setFindings(response.data);
+      const response = await api(path('/audit'));
+      setFindings(response);
     } catch (error) {
-      console.error("Audit fetch failed", error);
+      setError(errorText(error));
     } finally {
       setLoading(false);
     }
@@ -34,16 +39,20 @@ export default function AccessHealth() {
 
   useEffect(() => {
     fetchAudit();
-  }, []);
+  }, [path, state?.policy_revision]);
 
   const handleFix = async (findingId: string) => {
+    setBusy(findingId);
     try {
-      await axios.post(`${API_BASE}/audit/fix?finding_id=${findingId}`);
+      await post(path('/audit/fix'), { finding_id: findingId });
+      await refresh();
       await fetchAudit();
     } catch (error) {
-      console.error("Fix failed", error);
-    }
+      setError(errorText(error));
+    } finally { setBusy(null); }
   };
+
+  if (error) return <div role="alert" className="app-error">Audit unavailable: {error} <button className="app-link" onClick={fetchAudit}>Retry</button></div>;
 
   if (loading) {
     return (
@@ -60,7 +69,7 @@ export default function AccessHealth() {
       <div className="inspector-empty" role="status">
         <span className="inspector-empty-icon"><ShieldCheck size={30} strokeWidth={1.5} /></span>
         <span className="inspector-eyebrow">Access health</span>
-        <h3>All Systems Secure</h3>
+        <h3>No simulated access findings</h3>
         <p>No immediate access health risks detected.</p>
       </div>
     );
@@ -88,9 +97,9 @@ export default function AccessHealth() {
             </div>
             <h4>{f.title}</h4>
             <p>{f.explanation}</p>
-            <button onClick={() => handleFix(f.id)} className="finding-fix-button" title="Apply Fix">
-              <span>Apply Fix</span><ArrowUpRight size={15} aria-hidden="true" />
-            </button>
+            {f.executable ? <button disabled={!canWrite || busy !== null} onClick={() => handleFix(f.id)} className="finding-fix-button" title="Apply Fix">
+              <span>{busy === f.id ? "Applying…" : "Apply simulated fix"}</span><ArrowUpRight size={15} aria-hidden="true" />
+            </button> : <p className="app-muted">Guidance: create separate vendor accounts in the vendor application. Bulkhead cannot perform this vendor operation.</p>}
           </article>
         ))}
       </div>

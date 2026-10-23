@@ -1,2 +1,6 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+*.sh text eol=lf
+lab/router/bulkhead-router text eol=lf
+lab/probe/bulkhead-probe text eol=lf

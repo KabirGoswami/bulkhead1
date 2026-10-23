@@ -67,12 +67,14 @@ def run_audit(state: HomeState) -> List[AuditFinding]:
                 title="Over-shared Account",
                 explanation=f"Account {account.name} is linked to {len(account.linked_device_ids)} devices. This increases the blast radius if the account is compromised.",
                 fix_type="SPLIT_ACCOUNT",
-                fix_params={} # Complex fix, might just be a warning
+                fix_params={}, executable=False
             ))
 
     return findings
 
 def apply_fix(state: HomeState, finding: AuditFinding) -> HomeState:
+    if not finding.executable or not finding.fix_params:
+        raise ValueError("This operation requires vendor guidance")
     # Mutate the state based on fix_type
     if finding.device_id:
         for device in state.devices:

@@ -8,6 +8,8 @@ class FlowEvent(BaseModel):
     dst: str
     port: int
     bytes: int
+    # Set only by a trusted producer after matching configured vendor rules.
+    verified_vendor_update: bool = False
 
 class AuthEvent(BaseModel):
     ts: datetime
@@ -15,3 +17,11 @@ class AuthEvent(BaseModel):
     client: str
     geo: str
     result: str # "success" | "fail"
+
+
+class VendorCommandEvent(BaseModel):
+    ts: datetime
+    account_id: str
+    device_id: str
+    operation: str
+    execution_mode: str = "simulation"
