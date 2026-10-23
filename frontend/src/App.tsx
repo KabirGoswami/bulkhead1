@@ -66,7 +66,7 @@ export default function App() {
   const deviceCount = state?.devices.length ?? null;
   const accountCount = state?.accounts.length ?? null;
   const connected = stream === 'Live' && state?.worker.healthy && !error;
-  const accountView = ['login','register','verify','recover','reset','onboarding'].includes(page) || (page !== 'overview' && (!session.user || !session.home));
+  const accountView = ['login','register','verify','recover','reset','onboarding'].includes(page) || (!session.user && page !== 'overview');
   const focusPage = useRef(false);
   const menuButton = useRef<HTMLButtonElement>(null);
 
@@ -142,7 +142,7 @@ export default function App() {
         <div className="site-header__inner">
           <a className="site-brand" href="#/" aria-label="Bulkhead home"><Shield size={26} strokeWidth={1.5} /><span>bulkhead<span className="heading-dot">.</span></span></a>
           <nav id="site-navigation" className={`site-nav ${menuOpen ? 'is-open' : ''}`} aria-label="Main navigation">
-            {pages.map(({ id, href, label, icon: Icon }) => (
+            {pages.filter(({ id }) => session.user || id === 'overview').map(({ id, href, label, icon: Icon }) => (
               <a key={id} href={href} aria-current={page === id ? 'page' : undefined} onClick={() => {
                 setMenuOpen(false);
                 if (menuOpen && page === id) {
@@ -155,7 +155,11 @@ export default function App() {
           </nav>
           <div className="site-header__actions">
             <ThemePicker />
-            {!session.user && <a className="app-link" href="#/login">Sign in</a>}
+            {session.user ? (
+              <a className="app-link" href="#/network">Enter Dashboard</a>
+            ) : (
+              <a className="app-link" href="#/login">Sign in</a>
+            )}
             <button ref={menuButton} className="mobile-menu-button" type="button" aria-expanded={menuOpen} aria-controls="site-navigation" aria-label={menuOpen ? 'Close navigation' : 'Open navigation'} onClick={() => setMenuOpen(open => !open)}>
               {menuOpen ? <X size={21} /> : <Menu size={21} />}
             </button>
@@ -163,10 +167,16 @@ export default function App() {
         </div>
       </header>
 
+
       <main id="main-content" tabIndex={-1} className={`site-main ${page === 'overview' ? 'site-main--home' : ''}`}>
         {accountView ? <AccountPages key={routeHash} page={page} /> : <>
-        {page === 'overview' && <div data-active-page="true"><LandingIntro /></div>}
-        <div className="page-container">
+        {page === 'overview' && (
+          <div data-active-page="true" className="landing-wrapper">
+            <LandingIntro session={session} />
+          </div>
+        )}
+        <div className="page-container" hidden={page === 'overview'}>
+
           {session.user && <div className="household-bar"><label htmlFor="active-household">Household</label><select id="active-household" className="household-select" value={session.home?.id || ''} onChange={e => session.choose(e.target.value)}>{session.homes.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}</select><span>{session.home?.role} access</span><a href="#/household">Settings</a><button className="app-link" onClick={() => session.logout().catch(err => setAccountError(errorText(err)))}>Sign out</button></div>}
           <div className="capability-note">Simulation is the default. The OpenWrt adapter is {state?.capabilities?.adapter_enabled ? 'enabled' : 'disabled'}; dry-run is {state?.capabilities?.dry_run === false ? 'off' : 'on'}. The lab demonstrates routed VM isolation. Physical-device protection, vendor-cloud enforcement and the public simulator are later phases.</div>
           {(error || accountError) && <div role="alert" className="app-error">{error || accountError} · Displayed data may be stale. <button className="app-link" onClick={refresh}>Retry</button></div>}

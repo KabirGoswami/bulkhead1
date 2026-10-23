@@ -33,9 +33,10 @@ const features = [
   },
 ];
 
-export default function LandingIntro() {
+export default function LandingIntro({ session }: { session: any }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const illustrationId = useId().replace(/:/g, '');
+
 
   useEffect(() => {
     const root = rootRef.current;
@@ -99,9 +100,13 @@ export default function LandingIntro() {
           <h1 id="landing-title" data-page-title tabIndex={-1}>One device.<br /><span>Not your<br className="landing-title-break" /> entire home.</span></h1>
           <p className="landing-hero__description">A single compromised device shouldn’t open every door. Explore how Bulkhead makes risk visible and contains a threat before it reaches the rest of the home.</p>
           <div className="landing-actions">
-            <a className="landing-button landing-button--primary" href="#/network">Explore your network <ArrowUpRight size={17} /></a>
-            <a className="landing-button landing-button--secondary" href="#/simulation">Run a simulation <ArrowRight size={16} /></a>
-          </div>
+          {session.user ? (
+            <a className="landing-button landing-button--primary" href="#/network">Access Dashboard <ArrowUpRight size={17} /></a>
+          ) : (
+            <a className="landing-button landing-button--primary" href="#/login">Log in <ArrowRight size={16} /></a>
+          )}
+          <a className="landing-button landing-button--secondary" href="#/simulation">Run a simulation <ArrowRight size={16} /></a>
+        </div>
           <p className="landing-hero__note"><Shield size={13} /> A security sandbox. Virtual devices, simulated traffic.</p>
         </div>
 
