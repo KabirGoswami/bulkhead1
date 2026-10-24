@@ -1,22 +1,30 @@
 :root,
+:root[data-theme='phantom'],
 :root[data-theme='mint'] {
   color-scheme: dark;
-  --bg: #0b0e11;
-  --surface: #121719;
-  --surface-raised: #191f22;
-  --surface-hover: #20282a;
-  --border: #293235;
-  --text: #eef2ed;
-  --muted: #8e9c9a;
-  --subtle: #788b83;
-  --accent: #b9f574;
-  --accent-soft: rgba(185, 245, 116, .1);
-  --accent-ink: #14200b;
-  --danger: #fa817b;
-  --warning: #edc478;
-  --info: #8bbcec;
-  --map-bg: #0d1215;
-  --hero-glow: rgba(185, 245, 116, .12);
+  --bg: #101411;
+  --surface: #141b16;
+  --surface-raised: #162019;
+  --surface-hover: #1c2720;
+  --border: rgba(255, 255, 255, 0.09);
+  --border-subtle: #3c503e;
+  --text: #e9e9e1;
+  --muted: #8a948b;
+  --subtle: #6f7e70;
+  --accent: #a3d7d4;
+  --accent-soft: rgba(163, 215, 212, 0.12);
+  --accent-ink: #101411;
+  --danger: #e68b7e;
+  --warning: #d4b482;
+  --info: #a3d7d4;
+  --map-bg: #101714;
+  --hero-glow: rgba(163, 215, 212, 0.15);
+  --line: rgba(255, 255, 255, 0.08);
+  --cyan: #a3d7d4;
+  --red: #e68b7e;
+  --font-sans: 'Helvetica Neue', -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+  --font-mono: 'SFMono-Regular', Consolas, monospace;
+  --font-serif: Georgia, 'Times New Roman', serif;
 }
 
 :root[data-theme='glacier'] {

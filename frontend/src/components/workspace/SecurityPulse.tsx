@@ -1,0 +1,12 @@
+import { motion, useReducedMotion } from 'motion/react'
+import { devices, type DeviceId } from '../../data/devices'
+import { Camera, LockKeyhole, Shield, Router } from 'lucide-react'
+const positions: Record<DeviceId, { left: string; top: string }> = { 'lock-01': { left:'18%', top:'74%' }, 'cam-01': { left:'41%', top:'36%' }, 'alarm-01': { left:'79%', top:'45%' }, 'net-01': { left:'60%', top:'74%' } }
+const icons = { camera: Camera, lock: LockKeyhole, alarm: Shield, router: Router }
+export function SecurityPulse({ isolated, scanning, onInspect }: { isolated: Set<DeviceId>; scanning: boolean; onInspect: (id: DeviceId) => void }) {
+ const reduced = useReducedMotion()
+ return <div className="security-pulse"><div className="pulse-caption"><span className="eyebrow">RESIDENCE 01 / LOCALIZED SIGNALS</span><h4>Every alert has an address.</h4><p>Select a device to inspect the evidence behind its reported state.</p><span>SIMULATED FLOOR PLAN · NOT TO SCALE</span></div><div className="pulse-home" role="group" aria-label="Interactive home security map">
+  <svg viewBox="0 0 600 280" preserveAspectRatio="none" fill="none" aria-hidden="true"><path d="M40 25H560V255H40Z" fill="#16221a" stroke="#6a806c" strokeWidth="2"/><path d="M320 25V150H560M320 150H210V255M40 150H130M170 150H210M420 150V255" stroke="#526d58" strokeWidth="2"/><path d="M40 220h30m0 0v35M130 150v-35m0 0 40 35" stroke="#b3c5b0"/><path d="M75 25h100m200 0h100m85 70v50" stroke="#9cae99" strokeWidth="5"/><path d="M100 95H270M380 90H510M260 205H360" stroke="#324c36" strokeDasharray="2 6"/><text x="180" y="69" fill="#91a68f" fontSize="10" fontFamily="monospace">LIVING ROOM</text><text x="390" y="61" fill="#91a68f" fontSize="10" fontFamily="monospace">MAIN HALLWAY</text></svg>
+  {devices.map(d => { const Icon=icons[d.kind]; const alert=d.risk!=='secure'; return <button key={d.id} className={`home-signal ${alert ? 'home-alert' : ''} ${isolated.has(d.id) ? 'home-isolated' : ''}`} style={positions[d.id]} aria-label={`${d.name}. ${isolated.has(d.id) ? 'Isolated' : d.observed}. Inspect evidence.`} onClick={()=>onInspect(d.id)}><span className="home-signal-icon"><Icon size={18}/>{alert && <motion.i key={`${d.id}-${scanning}`} initial={reduced ? false : { scale: 1, opacity: .6 }} animate={reduced ? { opacity: .25 } : { scale: [1,2.3], opacity: [.55,0] }} transition={{ duration: 1.7, repeat: reduced ? 0 : 2, delay: reduced ? 0 : .2 }}/>}</span><strong>{d.name}</strong><small>{isolated.has(d.id) ? 'Isolated · evidence retained' : d.observed}</small></button> })}
+ </div></div>
+}

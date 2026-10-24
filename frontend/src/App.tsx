@@ -248,7 +248,7 @@ export default function App() {
           {page === 'phantom' && <section className="feature-page" data-active-page="true"><PageIntro number="09" eyebrow="PHANTOM / Reality Check" title="Trust the source. Check the story" description="Follow a sensor message through identity, independent evidence, and the decision that controls a virtual action." /><PhantomPage /></section>}
           {page === 'devices' && <section data-active-page="true"><PageIntro number="06" eyebrow="Device inventory" title="Know what is connected" description="Approve devices, choose their zones, and record firmware and trusted lab mappings." /><DevicesPage /></section>}
           {page === 'policies' && <section data-active-page="true"><PageIntro number="07" eyebrow="Access policies" title="Give access a boundary" description="Preview persistent access rules and expiring grants before applying them to the simulation." /><PoliciesPage /></section>}
-          {page === 'household' && <section data-active-page="true"><PageIntro number="08" eyebrow="Household settings" title="Your private household" description="Manage membership, invitations, sessions, notifications and lab enrollment." /><HouseholdPage key={routeHahs} /></section>}
+          {page === 'household' && <section data-active-page="true"><PageIntro number="08" eyebrow="Household settings" title="Your private household" description="Manage membership, invitations, sessions, notifications and lab enrollment." /><HouseholdPage key={routeHash} /></section>}
           {page === 'not-found' && (
             <section className="feature-page not-found" data-active-page="true">
               <PageIntro number="404" eyebrow="A small detour" title="This page isn't connected" description="Let's get you back to a familiar part of your home." />
@@ -259,7 +259,8 @@ export default function App() {
         </>}
       </main>
 
-      <footer className="site-footer">
+      {page !== 'overview' && (
+        <footer className="site-footer">
         <div className="site-footer__inner">
           <div className="site-footer__top">
             <div className="footer-identity"><a className="site-brand" href="#/" aria-label="Bulkhead home"><Shield size={25} strokeWidth={1.5} /><span>bulkhead<span className="heading-dot">.</span></span></a><p>A little more visibility.<br />A more resilient connected home.</p><span className="footer-simulation"><span className="status-dot" /> Virtual devices. Simulated traffic.</span></div>
@@ -269,6 +270,7 @@ export default function App() {
           <div className="site-footer__bottom"><span>© {new Date().getFullYear()} Bulkhead</span><span>A smart-home security simulation. No real devices are controlled.</span><span><Shield size={12} /> Stay connected.</span></div>
         </div>
       </footer>
+      )}
     </div>
   );
 }

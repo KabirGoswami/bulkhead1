@@ -13,8 +13,10 @@
   "dependencies": {
     "@react-three/drei": "^10.7.9",
     "@react-three/fiber": "^9.8.2",
+    "@xyflow/react": "^12.12.0",
     "axios": "1.20.0",
     "lucide-react": "1.61.0",
+    "motion": "^14.6.0",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "reactflow": "11.11.4",
