@@ -1,0 +1,65 @@
+name: bulkhead
+x-backend: &backend
+  build:
+    context: .
+    dockerfile: deploy/api.Dockerfile
+  env_file: .env
+  environment:
+    BULKHEAD_DATABASE_URL: postgresql+psycopg://bulkhead:${POSTGRES_PASSWORD:-bulkhead-local}@db/bulkhead
+  restart: unless-stopped
+  init: true
+services:
+  db:
+    image: postgres:17.6-bookworm
+    environment:
+      POSTGRES_DB: bulkhead
+      POSTGRES_USER: bulkhead
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bulkhead-local}
+    volumes: [postgres:/var/lib/postgresql/data]
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U bulkhead -d bulkhead]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+  migrate:
+    <<: *backend
+    restart: 'no'
+    command: [alembic, -c, backend/alembic.ini, upgrade, head]
+    depends_on:
+      db: {condition: service_healthy}
+  api:
+    <<: *backend
+    command: [uvicorn, app:app, --host, 0.0.0.0, --port, '8000', --no-proxy-headers]
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+  worker:
+    <<: *backend
+    command: [python, -m, bulkhead.worker]
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      mailpit: {condition: service_started}
+    healthcheck:
+      test: [CMD, python, -c, 'from bulkhead.db import SessionLocal; from bulkhead.service import worker_status; s=SessionLocal(); assert worker_status(s)["healthy"]']
+      interval: 10s
+      timeout: 5s
+      retries: 3
+  frontend:
+    build:
+      context: .
+      dockerfile: deploy/frontend.Dockerfile
+    ports: ['127.0.0.1:8080:8080']
+    depends_on: [api]
+    restart: unless-stopped
+  mailpit:
+    image: axllent/mailpit:v1.27.4
+    ports: ['127.0.0.1:8025:8025']
+    restart: unless-stopped
+volumes:
+  postgres:

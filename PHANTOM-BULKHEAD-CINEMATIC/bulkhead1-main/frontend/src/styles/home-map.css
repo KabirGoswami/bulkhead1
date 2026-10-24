@@ -1,0 +1,85 @@
+.map-workspace {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--map-bg);
+  isolation: isolate;
+}
+.map-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; flex-shrink: 0; padding: 8px 12px 8px 16px; border-bottom: 1px solid var(--border); }
+.map-canvas { flex: 1; min-height: 0; position: relative; }
+.map-workspace .react-flow__renderer { cursor: grab; }
+.map-workspace .react-flow__pane:active { cursor: grabbing; }
+.map-workspace .react-flow__node { cursor: pointer; }
+.map-workspace .react-flow__attribution { margin: 0 12px 7px 0; background: transparent; font-size: 8px; }
+.map-workspace .react-flow__attribution a { color: var(--subtle); }
+.network-node-card {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 180px;
+  min-height: 65px;
+  padding: 13px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-raised);
+  color: var(--text);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--bg) 30%, transparent);
+  transition: border-color 160ms, background-color 160ms, box-shadow 160ms;
+}
+.network-node-card:hover { border-color: color-mix(in srgb, var(--accent) 65%, var(--border)); background: var(--surface-hover); }
+.map-workspace .react-flow__node:focus-visible { outline: 2px solid var(--accent); outline-offset: 5px; border-radius: 10px; }
+.network-node-icon { display: grid; flex: 0 0 28px; place-items: center; color: var(--text); }
+.network-node-copy { display: flex; flex-direction: column; min-width: 0; gap: 5px; }
+.network-node-name { font-size: 13px; font-weight: 600; line-height: 1.25; letter-spacing: -0.15px; }
+.network-node-meta { display: flex; align-items: center; gap: 5px; color: var(--muted); font-size: 9px; line-height: 1.2; white-space: nowrap; }
+.network-node-meta > span:first-child { text-transform: capitalize; }
+.network-node-meta-dot { width: 2px; height: 2px; background: var(--subtle); border-radius: 50%; }
+.network-node-card .network-node-handle { width: 5px; height: 5px; border: 1px solid var(--muted); background: var(--surface); }
+.network-node-card--account { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); border-radius: 11px; }
+.network-node-card--account .network-node-icon { color: var(--accent); }
+.network-node-card--account .network-node-meta { color: var(--muted); }
+.network-node-card[data-status="source"] { border-color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, var(--surface)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 10%, transparent); }
+.network-node-card[data-status="source"] .network-node-icon { color: var(--danger); }
+.network-node-card[data-status="reachable"] { border-color: color-mix(in srgb, var(--warning) 75%, var(--border)); background: color-mix(in srgb, var(--warning) 10%, var(--surface)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--warning) 4%, transparent); }
+.network-node-card[data-status="reachable"] .network-node-icon { color: var(--warning); }
+.network-node-card[data-status="source"] .network-node-meta,
+.network-node-card[data-status="reachable"] .network-node-meta { color: var(--muted); }
+.map-legend { display: flex; align-items: center; flex-wrap: wrap; gap: 5px 13px; min-width: 0; color: var(--muted); font-size: 9px; line-height: 1.3; }
+.map-legend > span, .map-analysis-key > span { display: inline-flex; align-items: center; gap: 6px; }
+.map-legend i, .map-analysis-key i { display: block; width: 6px; height: 6px; }
+.map-legend-device { border: 1px solid var(--muted); border-radius: 2px; }
+.map-legend-account { background: var(--accent); border-radius: 50%; }
+.map-legend .map-legend-link { width: 14px; height: 1px; background: var(--accent); }
+.map-workspace .react-flow__controls { position: static; display: flex; flex-direction: row; flex-shrink: 0; margin: 0; overflow: hidden; border: 1px solid var(--border); border-radius: 6px; box-shadow: none; }
+.map-workspace .react-flow__controls-button { width: 26px; height: 26px; border-bottom: 0; border-right: 1px solid var(--border); background: var(--surface-raised); fill: var(--muted); }
+.map-workspace .react-flow__controls-button:last-child { border-right: 0; }
+.map-workspace .react-flow__controls-button:hover { background: var(--accent-soft); fill: var(--accent); }
+.map-workspace .react-flow__controls-button:focus-visible { position: relative; z-index: 1; outline: 2px solid var(--accent); outline-offset: -3px; }
+.map-analysis { position: absolute; z-index: 6; bottom: 17px; left: 16px; width: 260px; max-width: calc(100% - 32px); padding: 14px 16px; border: 1px solid var(--border); border-radius: 10px; background: color-mix(in srgb, var(--surface) 96%, transparent); color: var(--text); box-shadow: 0 8px 28px color-mix(in srgb, var(--bg) 40%, transparent); backdrop-filter: blur(8px); }
+.map-analysis-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.map-analysis-title { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+.map-analysis-close { display: grid; place-items: center; width: 24px; height: 24px; border: 0; border-radius: 4px; color: var(--muted); background: transparent; cursor: pointer; }
+.map-analysis-close:hover { color: var(--text); background: var(--surface-hover); }
+.map-analysis-close:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.map-analysis-name { display: block; font-size: 13px; line-height: 1.4; font-weight: 600; }
+.map-analysis-id { display: block; margin-top: 1px; color: var(--subtle); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 9px; }
+.map-analysis-result { display: flex; justify-content: space-between; gap: 10px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); font-size: 10px; color: var(--muted); }
+.map-analysis-result strong { color: var(--warning); font-weight: 600; }
+.map-analysis-key { display: flex; gap: 14px; margin-top: 10px; color: var(--muted); font-size: 9px; }
+.map-analysis-key i { border-radius: 50%; }
+.map-key-source { background: var(--danger); }
+.map-key-reachable { background: var(--warning); }
+@media (max-width: 600px) {
+  .map-toolbar { padding-left: 12px; gap: 10px; }
+  .map-legend { gap: 4px 10px; font-size: 8px; }
+}
+@media (prefers-reduced-motion: reduce) { .network-node-card { transition: none; } }
+
+/* SVG markers inherit a live accent without placing CSS variables in their IDs. */
+.map-workspace .react-flow__arrowhead { color: var(--accent); }
+.map-workspace .react-flow__connection-path { stroke: var(--accent); }
+.map-workspace .react-flow__selection,
+.map-workspace .react-flow__nodesselection-rect { background: var(--accent-soft); border: 1px solid var(--accent); }

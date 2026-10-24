@@ -1,0 +1,14 @@
+{
+  "app_origin": "http://localhost:8080",
+  "adapter_enabled": false,
+  "dry_run": true,
+  "known_hosts": "C:/Bulkhead/.secrets/known_hosts",
+  "router_key": "C:/Bulkhead/.secrets/router_agent_ed25519",
+  "probe_key": "C:/Bulkhead/.secrets/probe_agent_ed25519",
+  "journal": "C:/Bulkhead/.lab/agent-journal.json",
+  "mapping": {
+    "device_id": "REPLACE_WITH_APPROVED_PLUG_UUID",
+    "ipv4": "192.168.10.10",
+    "mac": "02:00:00:00:10:10"
+  }
+}

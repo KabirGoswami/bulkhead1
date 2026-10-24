@@ -81,8 +81,9 @@ def csrf(db: DB, request: Request, response: Response):
 def me(db: DB, user: CurrentUser, request: Request):
     session = session_for(db, request)
     return {"id": user.id, "email": user.email, "verified": user.verified,
-            "session_id": session.id, "google_configured": bool(settings().google_client_id and settings().google_client_secret),
+            "session_id": session.id if session else None, "google_configured": bool(settings().google_client_id and settings().google_client_secret),
             "google_linked": bool(db.scalar(select(Identity.id).where(Identity.user_id == user.id, Identity.provider == "google")))}
+
 
 
 class DevLoginInput(BaseModel):

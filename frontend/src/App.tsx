@@ -5,7 +5,7 @@ import AccountPages from './components/AccountPages';
 import DevicesPage from './components/DevicesPage';
 import PoliciesPage from './components/PoliciesPage';
 import HouseholdPage from './components/HouseholdPage';
-import PhantomPage from './components/PhantomPage';
+import AttackSimulatorPage from './components/AttackSimulatorPage';
 import {
   Activity, ArrowRight, ArrowUp, ArrowUpRight, Box,
   CircleDot, Fingerprint, History, House, LayoutGrid, Menu, Network, Play, Shield,
@@ -42,7 +42,7 @@ function currentPage(): Page {
   const invite = new URLSearchParams(window.location.hash.split('?')[1] || '').get('invite');
   if (invite) { try { sessionStorage.setItem('bulkhead.invite', invite); } catch { /* The token remains available in this route. */ } }
   if (!path) return 'overview';
-  return pages.some(page => page.id === path) || ['login','register','verify','recover','reset','onboarding'].includes(path) ? path as Page : 'not-found';
+  return pages.some(page => page.id === path) || ['login', 'register', 'verify', 'recover', 'reset', 'onboarding'].includes(path) ? path as Page : 'not-found';
 }
 
 function PageIntro({ number, eyebrow, title, description }: { number: string; eyebrow: string; title: string; description: string }) {
@@ -67,7 +67,7 @@ export default function App() {
   const deviceCount = state?.devices.length ?? null;
   const accountCount = state?.accounts.length ?? null;
   const connected = stream === 'Live' && state?.worker.healthy && !error;
-  const accountView = ['login','register','verify','recover','reset','onboarding'].includes(page) || (!session.user && page !== 'overview');
+  const accountView = ['login', 'register', 'verify', 'recover', 'reset', 'onboarding'].includes(page) || (!session.user && page !== 'overview');
   const focusPage = useRef(false);
   const menuButton = useRef<HTMLButtonElement>(null);
 
@@ -172,104 +172,114 @@ export default function App() {
 
       <main id="main-content" tabIndex={-1} className={`site-main ${page === 'overview' ? 'site-main--home' : ''}`}>
         {accountView ? <AccountPages key={routeHash} page={page} /> : <>
-        {page === 'overview' && (
-          <div data-active-page="true" className="landing-wrapper">
-            <LandingIntro session={session} />
-          </div>
-        )}
-        <div className="page-container" hidden={page === 'overview'}>
-          {session.user && <div className="household-bar"><label htmlFor="active-household">Household</label><select id="active-household" className="household-select" value={session.home?.id || ''} onChange={e => session.choose(e.target.value)}>{session.homes.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}</select><span>{session.home?.role} access</span><a href="#/household">Settings</a><button className="app-link" onClick={() => session.logout().catch(err => setAccountError(errorText(err)))}>Sign out</button></div>}
-          <div className="capability-note">Simulation is the default. The OpenWrt adapter is {state?.capabilities?.adapter_enabled ? 'enabled' : 'disabled'}; dry-run is {state?.capabilities?.dry_run === false ? 'off' : 'on'}. The lab demonstrates routed VM isolation. Physical-device protection, vendor-cloud enforcement and the public simulator are later phases.</div>
-          {(error || accountError) && <div role="alert" className="app-error">{error || accountError} · Displayed data may be stale. <button className="app-link" onClick={refresh}>Retry</button></div>}
-          <div className="workspace-toolbar" hidden={page === 'overview' || page === 'not-found'}>
-            <div className="workspace-toolbar__status"><span className={`status-dot ${connected ? '' : 'status-dot--offline'}`} /><span>{connected ? 'Live · worker healthy' : `${stream} · ${state?.worker.healthy ? 'worker healthy' : 'worker unavailable'}`}</span><span className="toolbar-divider" /><span>Simulation mode</span></div>
-            <ProfileSwitcher />
-          </div>
+          {page === 'overview' && (
+            <div data-active-page="true" className="landing-wrapper">
+              <LandingIntro session={session} />
+            </div>
+          )}
+          <div className="page-container" hidden={page === 'overview'}>
+            {session.user && <div className="household-bar"><label htmlFor="active-household">Household</label><select id="active-household" className="household-select" value={session.home?.id || ''} onChange={e => session.choose(e.target.value)}>{session.homes.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}</select><span>{session.home?.role} access</span><a href="#/household">Settings</a><button className="app-link" onClick={() => session.logout().catch(err => setAccountError(errorText(err)))}>Sign out</button></div>}
+            <div className="capability-note">Simulation is the default. The OpenWrt adapter is {state?.capabilities?.adapter_enabled ? 'enabled' : 'disabled'}; dry-run is {state?.capabilities?.dry_run === false ? 'off' : 'on'}. The lab demonstrates routed VM isolation. Physical-device protection, vendor-cloud enforcement and the public simulator are later phases.</div>
+            {(error || accountError) && <div role="alert" className="app-error">{error || accountError} · Displayed data may be stale. <button className="app-link" onClick={refresh}>Retry</button></div>}
+            <div className="workspace-toolbar" hidden={page === 'overview' || page === 'not-found'}>
+              <div className="workspace-toolbar__status"><span className={`status-dot ${connected ? '' : 'status-dot--offline'}`} /><span>{connected ? 'Live · worker healthy' : `${stream} · ${state?.worker.healthy ? 'worker healthy' : 'worker unavailable'}`}</span><span className="toolbar-divider" /><span>Simulation mode</span></div>
+              <ProfileSwitcher />
+            </div>
 
-          {page === 'network' && (
-            <section className="feature-page feature-page--network" data-active-page="true">
-              <PageIntro number="01" eyebrow="Network visibility" title="Your home, mapped" description="Explore the devices and accounts that connect your home. Select any node to see how far a compromise could reach." />
-              {securitySummary}
-              <section className="network-panel" aria-labelledby="network-title">
-                <div className="panel-heading">
-                  <div><span className="section-eyebrow">Devices, accounts &amp; shared access</span><h2 id="network-title"><Network size={19} /> Connected home</h2></div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <div className="network-view-toggle" role="group" aria-label="Map view mode">
-                      <button className="network-view-toggle__btn" type="button" aria-pressed={networkView === '2d'} onClick={() => setNetworkView('2d')}><LayoutGrid size={14} />2D</button>
-                      <button className="network-view-toggle__btn" type="button" aria-pressed={networkView === '3d'} onClick={() => setNetworkView('3d')}><Box size={14} />3D Room</button>
+            {page === 'network' && (
+              <section className="feature-page feature-page--network" data-active-page="true">
+                <PageIntro number="01" eyebrow="Network visibility" title="Your home, mapped" description="Explore the devices and accounts that connect your home. Select any node to see how far a compromise could reach." />
+                {securitySummary}
+                <section className="network-panel" aria-labelledby="network-title">
+                  <div className="panel-heading">
+                    <div><span className="section-eyebrow">Devices, accounts &amp; shared access</span><h2 id="network-title"><Network size={19} /> Connected home</h2></div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div className="network-view-toggle" role="group" aria-label="Map view mode">
+                        <button className="network-view-toggle__btn" type="button" aria-pressed={networkView === '2d'} onClick={() => setNetworkView('2d')}><LayoutGrid size={14} />2D</button>
+                        <button className="network-view-toggle__btn" type="button" aria-pressed={networkView === '3d'} onClick={() => setNetworkView('3d')}><Box size={14} />3D Room</button>
+                      </div>
+                      <span className="panel-tag">{networkView === '3d' ? '3D room view' : 'Interactive map'}</span>
                     </div>
-                    <span className="panel-tag">{networkView === '3d' ? '3D room view' : 'Interactive map'}</span>
                   </div>
-                </div>
-                <div className="network-panel__canvas">
-                  {networkView === '2d' ? <HomeMap /> : (
-                    <Suspense fallback={<div style={{ display: 'grid', placeItems: 'center', height: '100%', color: 'var(--muted)', fontSize: '13px' }}>Loading 3D room…</div>}>
-                      <NetworkRoom3D />
-                    </Suspense>
-                  )}
-                </div>
-                <div className="network-panel__caption"><CircleDot size={14} />{networkView === '3d' ? 'Orbit with mouse. Scroll to zoom. Click any node to reveal its blast radius.' : 'Select a device or account to explore its blast radius. Pan or zoom to take a closer look.'}</div>
+                  <div className="network-panel__canvas">
+                    {networkView === '2d' ? <HomeMap /> : (
+                      <Suspense fallback={<div style={{ display: 'grid', placeItems: 'center', height: '100%', color: 'var(--muted)', fontSize: '13px' }}>Loading 3D room…</div>}>
+                        <NetworkRoom3D />
+                      </Suspense>
+                    )}
+                  </div>
+                  <div className="network-panel__caption"><CircleDot size={14} />{networkView === '3d' ? 'Orbit with mouse. Scroll to zoom. Click any node to reveal its blast radius.' : 'Select a device or account to explore its blast radius. Pan or zoom to take a closer look.'}</div>
+                </section>
+                <a className="next-page-link" href="#/health"><span>Next: find and resolve access risks</span>Access health<ArrowRight size={17} /></a>
               </section>
-              <a className="next-page-link" href="#/health"><span>Next: find and resolve access risks</span>Access health<ArrowRight size={17} /></a>
-            </section>
-          )}
+            )}
 
-          {page === 'health' && (
-            <section className="feature-page feature-page--health" data-active-page="true">
-              <PageIntro number="02" eyebrow="Access health" title="Close the gaps" description="Review weak credentials, older firmware, and unnecessary access. Small fixes can make a meaningful difference." />
-              <div className="feature-surface"><AccessHealth /></div>
-            </section>
-          )}
-
-          {/* Keep these views mounted so their event histories survive page navigation. */}
-          <section className="feature-page feature-page--alerts" hidden={page !== 'alerts'} data-active-page={page === 'alerts'}>
-            <PageIntro number="03" eyebrow="Detection & response" title="The signals that matter" description="Review simulated threats, understand the evidence, and confirm suggested actions when your attention is needed." />
-            <div className="feature-surface">{session.user && <AlertFeed />}</div>
-          </section>
-          <section className="feature-page feature-page--timeline" hidden={page !== 'timeline'} data-active-page={page === 'timeline'}>
-            <PageIntro number="04" eyebrow="Event history" title="See the whole sequence" description="Follow each signal from detection to explanation and containment, in the order it reaches your home." />
-            <div className="feature-surface">{session.user && <Timeline />}</div>
-          </section>
-
-          {page === 'simulation' && (
-            <section className="feature-page feature-page--simulation" data-active-page="true">
-              <PageIntro number="05" eyebrow="The simulation lab" title="Put your defenses to the test" description="Explore three attack and update scenarios using virtual devices. Every action stays inside this simulated home." />
-              <ScenarioControl />
-              <section className="simulation-guide" aria-labelledby="simulation-guide-title">
-                <div><span className="section-eyebrow">A closer look</span><h2 id="simulation-guide-title">From scenario to insight.</h2></div>
-                <ol>
-                  <li><span>01</span><div><h3>Choose a profile</h3><p>Use Admin, Family, Work, or Solo above to explore different response policies.</p></div></li>
-                  <li><span>02</span><div><h3>Start a scenario</h3><p>Compare a compromised plug, stolen credentials, and a benign vendor update.</p></div></li>
-                  <li><span>03</span><div><h3>Follow the signals</h3><p>Review <a href="#/alerts">security alerts</a> and trace the sequence in the <a href="#/timeline">event timeline</a>.</p></div></li>
-                </ol>
+            {page === 'health' && (
+              <section className="feature-page feature-page--health" data-active-page="true">
+                <PageIntro number="02" eyebrow="Access health" title="Close the gaps" description="Review weak credentials, older firmware, and unnecessary access. Small fixes can make a meaningful difference." />
+                <div className="feature-surface"><AccessHealth /></div>
               </section>
+            )}
+
+            {/* Keep these views mounted so their event histories survive page navigation. */}
+            <section className="feature-page feature-page--alerts" hidden={page !== 'alerts'} data-active-page={page === 'alerts'}>
+              <PageIntro number="03" eyebrow="Detection & response" title="The signals that matter" description="Review simulated threats, understand the evidence, and confirm suggested actions when your attention is needed." />
+              <div className="feature-surface">{session.user && <AlertFeed />}</div>
             </section>
-          )}
-          {page === 'phantom' && <section className="feature-page" data-active-page="true"><PageIntro number="09" eyebrow="PHANTOM / Reality Check" title="Trust the source. Check the story" description="Follow a sensor message through identity, independent evidence, and the decision that controls a virtual action." /><PhantomPage /></section>}
-          {page === 'devices' && <section data-active-page="true"><PageIntro number="06" eyebrow="Device inventory" title="Know what is connected" description="Approve devices, choose their zones, and record firmware and trusted lab mappings." /><DevicesPage /></section>}
-          {page === 'policies' && <section data-active-page="true"><PageIntro number="07" eyebrow="Access policies" title="Give access a boundary" description="Preview persistent access rules and expiring grants before applying them to the simulation." /><PoliciesPage /></section>}
-          {page === 'household' && <section data-active-page="true"><PageIntro number="08" eyebrow="Household settings" title="Your private household" description="Manage membership, invitations, sessions, notifications and lab enrollment." /><HouseholdPage key={routeHash} /></section>}
-          {page === 'not-found' && (
-            <section className="feature-page not-found" data-active-page="true">
-              <PageIntro number="404" eyebrow="A small detour" title="This page isn't connected" description="Let's get you back to a familiar part of your home." />
-              <a className="primary-link" href="#/">Back to home<ArrowRight size={17} /></a>
+            <section className="feature-page feature-page--timeline" hidden={page !== 'timeline'} data-active-page={page === 'timeline'}>
+              <PageIntro number="04" eyebrow="Event history" title="See the whole sequence" description="Follow each signal from detection to explanation and containment, in the order it reaches your home." />
+              <div className="feature-surface">{session.user && <Timeline />}</div>
             </section>
-          )}
-        </div>
+
+            {page === 'simulation' && (
+              <section className="feature-page feature-page--simulation" data-active-page="true">
+                <PageIntro number="05" eyebrow="The simulation lab" title="Put your defenses to the test" description="Explore three attack and update scenarios using virtual devices. Every action stays inside this simulated home." />
+                <ScenarioControl />
+                <section className="simulation-guide" aria-labelledby="simulation-guide-title">
+                  <div><span className="section-eyebrow">A closer look</span><h2 id="simulation-guide-title">From scenario to insight.</h2></div>
+                  <ol>
+                    <li><span>01</span><div><h3>Choose a profile</h3><p>Use Admin, Family, Work, or Solo above to explore different response policies.</p></div></li>
+                    <li><span>02</span><div><h3>Start a scenario</h3><p>Compare a compromised plug, stolen credentials, and a benign vendor update.</p></div></li>
+                    <li><span>03</span><div><h3>Follow the signals</h3><p>Review <a href="#/alerts">security alerts</a> and trace the sequence in the <a href="#/timeline">event timeline</a>.</p></div></li>
+                  </ol>
+                </section>
+              </section>
+            )}
+            {page === 'phantom' && (
+              <section className="feature-page" data-active-page="true">
+                <PageIntro
+                  number="09"
+                  eyebrow="PHANTOM / Attack Simulator"
+                  title="Test the threat. Watch the response"
+                  description="Follow real and simulated attacks against virtual household devices to verify multi-sensor correlation and autonomous policy enforcement."
+                />
+                <AttackSimulatorPage />
+              </section>
+            )}
+            {page === 'devices' && <section data-active-page="true"><PageIntro number="06" eyebrow="Device inventory" title="Know what is connected" description="Approve devices, choose their zones, and record firmware and trusted lab mappings." /><DevicesPage /></section>}
+            {page === 'policies' && <section data-active-page="true"><PageIntro number="07" eyebrow="Access policies" title="Give access a boundary" description="Preview persistent access rules and expiring grants before applying them to the simulation." /><PoliciesPage /></section>}
+            {page === 'household' && <section data-active-page="true"><PageIntro number="08" eyebrow="Household settings" title="Your private household" description="Manage membership, invitations, sessions, notifications and lab enrollment." /><HouseholdPage key={routeHash} /></section>}
+            {page === 'not-found' && (
+              <section className="feature-page not-found" data-active-page="true">
+                <PageIntro number="404" eyebrow="A small detour" title="This page isn't connected" description="Let's get you back to a familiar part of your home." />
+                <a className="primary-link" href="#/">Back to home<ArrowRight size={17} /></a>
+              </section>
+            )}
+          </div>
         </>}
       </main>
 
       {page !== 'overview' && (
         <footer className="site-footer">
-        <div className="site-footer__inner">
-          <div className="site-footer__top">
-            <div className="footer-identity"><a className="site-brand" href="#/" aria-label="Bulkhead home"><Shield size={25} strokeWidth={1.5} /><span>bulkhead<span className="heading-dot">.</span></span></a><p>A little more visibility.<br />A more resilient connected home.</p><span className="footer-simulation"><span className="status-dot" /> Virtual devices. Simulated traffic.</span></div>
-            <nav className="footer-navigation" aria-label="Footer navigation"><span>Explore the home</span><div>{pages.map(({ id, href, label }) => <a key={id} href={href} aria-current={page === id ? 'page' : undefined}>{label}<ArrowUpRight size={13} /></a>)}</div></nav>
-            <div className="footer-note"><span className="section-eyebrow">Designed to contain</span><p>One compromised device should never become the whole story.</p><button type="button" onClick={() => window.scrollTo({ top: 0, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })}>Back to top<ArrowUp size={14} /></button></div>
+          <div className="site-footer__inner">
+            <div className="site-footer__top">
+              <div className="footer-identity"><a className="site-brand" href="#/" aria-label="Bulkhead home"><Shield size={25} strokeWidth={1.5} /><span>bulkhead<span className="heading-dot">.</span></span></a><p>A little more visibility.<br />A more resilient connected home.</p><span className="footer-simulation"><span className="status-dot" /> Virtual devices. Simulated traffic.</span></div>
+              <nav className="footer-navigation" aria-label="Footer navigation"><span>Explore the home</span><div>{pages.map(({ id, href, label }) => <a key={id} href={href} aria-current={page === id ? 'page' : undefined}>{label}<ArrowUpRight size={13} /></a>)}</div></nav>
+              <div className="footer-note"><span className="section-eyebrow">Designed to contain</span><p>One compromised device should never become the whole story.</p><button type="button" onClick={() => window.scrollTo({ top: 0, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })}>Back to top<ArrowUp size={14} /></button></div>
+            </div>
+            <div className="site-footer__bottom"><span>© {new Date().getFullYear()} Bulkhead</span><span>A smart-home security simulation. No real devices are controlled.</span><span><Shield size={12} /> Stay connected.</span></div>
           </div>
-          <div className="site-footer__bottom"><span>© {new Date().getFullYear()} Bulkhead</span><span>A smart-home security simulation. No real devices are controlled.</span><span><Shield size={12} /> Stay connected.</span></div>
-        </div>
-      </footer>
+        </footer>
       )}
     </div>
   );

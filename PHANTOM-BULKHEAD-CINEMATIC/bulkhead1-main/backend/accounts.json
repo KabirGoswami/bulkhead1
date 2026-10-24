@@ -1,0 +1,16 @@
+[
+  {
+    "id": "household_admin",
+    "name": "Household Admin",
+    "mfa_enabled": true,
+    "password_strength": "strong",
+    "linked_device_ids": ["router", "hub", "thermostat", "speaker", "plug_1", "bulb_1", "phone", "laptop"]
+  },
+  {
+    "id": "camera_vendor_acc",
+    "name": "SecureView Account",
+    "mfa_enabled": false,
+    "password_strength": "medium",
+    "linked_device_ids": ["camera_1", "lock_1"]
+  }
+]

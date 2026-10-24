@@ -1,0 +1,8 @@
+#!/bin/sh
+# Forced-command probe key: exactly one fixed packet fixture, no arbitrary commands.
+set -eu
+[ "${SSH_ORIGINAL_COMMAND:-fixture}" = fixture ] || exit 64
+probe() { ip netns exec "$1" curl -fsS --connect-timeout 2 --max-time 3 http://192.168.20.10:8000/ >/dev/null 2>&1; }
+if probe plug; then plug=true; else plug=false; fi
+if probe work; then work=true; else work=false; fi
+printf '{"plug_reaches_iot":%s,"work_reaches_iot":%s}\n' "$plug" "$work"
